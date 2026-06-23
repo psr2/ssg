@@ -1,0 +1,53 @@
+{
+    "sales": [
+        {
+            "id": 1,
+            "customer_id": 1,
+            "warehouse_id": 1,
+            "sale_date": "2026-06-21",
+            "total_amount": "14700.00",
+            "paid_amount": "14700.00",
+            "due_amount": "0.00",
+            "created_at": "2026-06-21 23:33:02",
+            "updated_at": "2026-06-21 23:33:02"
+        }
+    ],
+    "payments": [
+        {
+            "id": 1,
+            "sale_id": 1,
+            "amount": "14700.00",
+            "method": "upi",
+            "reference_number": "INV75000",
+            "paid_at": "2026-06-21 00:00:00",
+            "created_at": "2026-06-21 23:33:02",
+            "updated_at": "2026-06-21 23:33:02"
+        }
+    ],
+    "customers": [
+        {
+            "id": 1,
+            "warehouse_id": 1,
+            "name": "aaa",
+            "phone": "0123456789",
+            "address": "aaa",
+            "location": "theni",
+            "credit_balance": "0.00",
+            "created_at": "2026-06-21 23:33:02",
+            "updated_at": "2026-06-21 23:33:02"
+        }
+    ],
+    "inventory": [
+        {
+            "id": 1,
+            "warehouse_id": 1,
+            "batch": "JE26-ON-AP-THENI-65",
+            "product_id": 1,
+            "grade": "1",
+            "qty": "24400.00",
+            "unit_cost": "14.00",
+            "created_at": "2026-06-21 23:16:32",
+            "updated_at": "2026-06-21 23:33:02"
+        }
+    ]
+}
