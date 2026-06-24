@@ -4,11 +4,9 @@
  * Powered by Fuse.js for fuzzy matching.
  */
 
-document.getElementById('wh_shop_id').addEventListener('change', function (event) {
-    const warehouseId = event.target.value;
-    console.log('Warehouse selected:', warehouseId);
-    whSearchCustomerNames(warehouseId);
-});
+// Load all customers from the DOM element
+const whCustomersDataEl = document.getElementById('wh-customers-data');
+const allWhCustomers = whCustomersDataEl ? JSON.parse(whCustomersDataEl.getAttribute('data-customers') || '[]') : [];
 
 let whCustomerNames = [];
 let whFuse;
@@ -19,39 +17,56 @@ const whFuseOptions = {
     keys:         ['name'],
 };
 
-// Fetch customers for this warehouse
-async function whSearchCustomerNames(warehouseId) {
-    try {
-        const response = await fetch('/warehouse/customer/search', {
-            method: 'POST',
-            headers: {
-                'Content-Type':  'application/json',
-                'X-CSRF-TOKEN':  document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Accept':        'application/json',
-            },
-            body: JSON.stringify({ shop_id: warehouseId }),
-        });
+// Filter customers locally and initialize/update Fuse.js
+function whUpdateCustomersList(warehouseId) {
+    if (!warehouseId) {
+        whCustomerNames = [];
+        whFuse = null;
+        return;
+    }
+    const warehouseIdInt = parseInt(warehouseId, 10);
+    // Filter customers matching the selected warehouse ID
+    whCustomerNames = allWhCustomers
+        .filter(c => parseInt(c.warehouse_id, 10) === warehouseIdInt)
+        .map(c => ({ id: String(c.id), name: c.name }));
 
-        if (!response.ok) {
-            const err = await response.json();
-            console.warn('Customer fetch returned non-OK:', err);
-            // Not throwing — an empty warehouse just has no customers yet
-            whCustomerNames = [];
-            whFuse          = null;
-            return;
+    if (whCustomerNames.length > 0) {
+        whFuse = new Fuse(whCustomerNames, whFuseOptions);
+        console.log('Warehouse Fuse initialized locally with', whCustomerNames.length, 'customers');
+    } else {
+        whFuse = null;
+        console.log('No warehouse customers found locally for warehouse ID:', warehouseIdInt);
+    }
+}
+
+// Add change listener to warehouse dropdown
+const whShopIdSelect = document.getElementById('wh_shop_id');
+if (whShopIdSelect) {
+    whShopIdSelect.addEventListener('change', function (event) {
+        const warehouseId = event.target.value;
+        console.log('Warehouse selected:', warehouseId);
+
+        // Reset customer input fields when warehouse changes
+        const whInput       = document.getElementById('wh_customer_name');
+        const whHiddenInput = document.getElementById('wh_customer_id');
+        if (whInput) {
+            whInput.disabled = false;
+            whInput.value = '';
+        }
+        if (whHiddenInput) {
+            whHiddenInput.value = '';
+        }
+        const newFields = document.getElementById('wh_newCustomerFields');
+        if (newFields) {
+            newFields.style.display = 'none';
         }
 
-        const json = await response.json();
-        const data = json.data || {};
+        whUpdateCustomersList(warehouseId);
+    });
 
-        // Convert { id: name } object to array of { id, name }
-        whCustomerNames = Object.entries(data).map(([id, name]) => ({ id, name }));
-        whFuse          = new Fuse(whCustomerNames, whFuseOptions);
-
-        console.log('Warehouse Fuse initialized with', whCustomerNames.length, 'customers');
-
-    } catch (err) {
-        console.error('Error fetching warehouse customers:', err);
+    // Handle initial selection if any
+    if (whShopIdSelect.value && whShopIdSelect.value !== 'Choose warehouse') {
+        whUpdateCustomersList(whShopIdSelect.value);
     }
 }
 

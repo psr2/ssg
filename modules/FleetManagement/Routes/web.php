@@ -50,7 +50,8 @@ Route::prefix("/fleet/sale")->group(function (){
     Route::get('/', [FleetSaleController::class, 'index']);
     Route::post('/search/routes', [FleetSaleController::class, 'routeName']);
     Route::post('/store', [FleetSaleController::class, 'storePayments']);
-
+    Route::get('/latest-trips', [FleetSaleController::class, 'latestTrips']);
+    Route::post('/upload-report', [FleetSaleController::class, 'uploadReport']);
 });
 
 Route::prefix("/fleet/customers")->group(function (){

@@ -2,10 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Modules\Inventory\Database\Seeders\DatabaseSeeder as InventorySeeder;
+use Modules\Inventory\Database\Seeders\UnitsTableSeeder;
+use Modules\Inventory\Database\Seeders\ProductsTableSeeder;
+use Modules\Locations\Database\Seeders\LocationsTableSeeder;
+use Modules\Settings\Database\Seeders\ProductGradesTableSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -14,10 +15,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-         $this->call([
-            InventorySeeder::class,
-            // Add other module seeders here
+        $this->call([
+            UnitsTableSeeder::class,
+            ProductsTableSeeder::class,
+            LocationsTableSeeder::class,
+            ProductGradesTableSeeder::class,
         ]);
-       
     }
 }

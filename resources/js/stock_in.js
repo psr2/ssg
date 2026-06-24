@@ -42,6 +42,17 @@ function updateFormDisplay() {
             if (totalCol) totalCol.className = "col-md-6";
             if (purchaseDateCol) purchaseDateCol.className = "col-md-6";
             if (unitCostCol) unitCostCol.className = "col-md-3";
+
+            // Auto-select "Unsorted" grade for Stock In if available
+            const gradeSelect = row.querySelector("select[name='products[][grade]']");
+            if (gradeSelect) {
+                const unsortedOpt = Array.from(gradeSelect.options).find(opt => 
+                    opt.value.toLowerCase() === 'unsorted' || opt.text.toLowerCase() === 'unsorted'
+                );
+                if (unsortedOpt) {
+                    gradeSelect.value = unsortedOpt.value;
+                }
+            }
         });
 
         if (referenceNo) {
@@ -483,7 +494,7 @@ document.getElementById('batchCodeSearchForm').addEventListener('submit', functi
         dateFrom: form.dateFrom.value
     };
 
-    fetch("search-batch-code", {
+    fetch("/stock-out/search-batch-code", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -497,7 +508,7 @@ document.getElementById('batchCodeSearchForm').addEventListener('submit', functi
             tbody.innerHTML = "";
 
             if (response.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center">No results found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center">No results found.</td></tr>`;
             } else {
                 response.forEach((item, index) => {
                     tbody.innerHTML += `
@@ -505,9 +516,10 @@ document.getElementById('batchCodeSearchForm').addEventListener('submit', functi
                         <td>${index + 1}</td>
                         <td>${item.batch_code}</td>
                         <td>${item.product}</td>
-                        <td>${item.vendor}</td>
+                        <td>${item.grade}</td>
                         <td>${item.location}</td>
-                        <td><button class="btn btn-sm btn-success select-batch" data-batch-code="${item.batch_code}" data-id="${item.id}">Select</button></td>
+                        <td>${parseFloat(item.available_qty).toFixed(2)}</td>
+                        <td><button class="btn btn-sm btn-success select-batch" data-batch-code="${item.batch_code}" data-grade="${item.grade}">Select</button></td>
                     </tr>`;
                 });
             }
@@ -536,11 +548,20 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log('Click detected on dynamically created button');
 
             const batchCode = target.getAttribute('data-batch-code');
+            const grade = target.getAttribute('data-grade');
             const batchCodeInput = document.getElementById('batch_code');
 
             if (batchCodeInput) {
                 batchCodeInput.value = batchCode;
                 console.log('Batch code set:', batchCode);
+
+                const row = batchCodeInput.closest('.product-row');
+                if (row) {
+                    const gradeSelect = row.querySelector("select[name='products[][grade]']");
+                    if (gradeSelect && grade) {
+                        gradeSelect.value = grade;
+                    }
+                }
             } else {
                 console.warn('Input with id "batch_code" not found');
             }

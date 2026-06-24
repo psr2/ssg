@@ -72,9 +72,6 @@ class WarehouseSaleRepository
                     'paid_at'          => $payload['payment_date'] ?? now(),
                 ]);
             }
-
-            // 5. Decrement stock from warehouse_inventory
-            $this->decrementWarehouseStock($payload);
         });
     }
 
@@ -123,45 +120,6 @@ class WarehouseSaleRepository
     }
 
     /**
-     * Deduct quantities from warehouse_inventory.
-     * Matches on: warehouse_id + product_id + batch + grade
-     *
-     * @throws WarehouseSaleFailedException
-     */
-    private function decrementWarehouseStock(array $payload): void
-    {
-        foreach ($payload['items'] as $item) {
-            $inventory = WarehouseInventory::where('warehouse_id', $payload['shop_id'])
-                ->where('product_id', $item['product'])
-                ->where('batch', $item['batch_code'])
-                ->where('grade', $item['grade'])
-                ->first();
-
-            if (!$inventory) {
-                // Fallback: search ignoring grade
-                $inventory = WarehouseInventory::where('warehouse_id', $payload['shop_id'])
-                    ->where('product_id', $item['product'])
-                    ->where('batch', $item['batch_code'])
-                    ->first();
-            }
-
-            if (!$inventory) {
-                throw new WarehouseSaleFailedException(
-                    "Inventory not found for product_id {$item['product']} and batch {$item['batch_code']}"
-                );
-            }
-
-            if ($inventory->qty < $item['quantity']) {
-                throw new WarehouseSaleFailedException(
-                    "Insufficient warehouse stock for product_id {$item['product']} in batch {$item['batch_code']}"
-                );
-            }
-
-            $inventory->decrement('qty', $item['quantity']);
-        }
-    }
-
-    /**
      * Delete a sale and restore its stock.
      *
      * @throws WarehouseSaleFailedException
@@ -173,37 +131,6 @@ class WarehouseSaleRepository
 
             if (!$sale) {
                 throw new WarehouseSaleFailedException("Sale not found or already deleted.");
-            }
-
-            // Restore stock to warehouse_inventory
-            foreach ($sale->items as $item) {
-                $inventory = WarehouseInventory::where('warehouse_id', $sale->warehouse_id)
-                    ->where('product_id', $item->product_id)
-                    ->where('batch', $item->batch_code)
-                    ->where('grade', $item->grade)
-                    ->first();
-
-                if (!$inventory) {
-                    // Fallback: search ignoring grade
-                    $inventory = WarehouseInventory::where('warehouse_id', $sale->warehouse_id)
-                        ->where('product_id', $item->product_id)
-                        ->where('batch', $item->batch_code)
-                        ->first();
-                }
-
-                if ($inventory) {
-                    $inventory->increment('qty', $item->quantity);
-                } else {
-                    // If the inventory record was somehow removed, recreate it to restore stock
-                    WarehouseInventory::create([
-                        'warehouse_id' => $sale->warehouse_id,
-                        'product_id'   => $item->product_id,
-                        'batch'        => $item->batch_code,
-                        'grade'        => $item->grade,
-                        'qty'          => $item->quantity,
-                        'unit_cost'    => $item->unit_price,
-                    ]);
-                }
             }
 
             // Delete associated payments

@@ -27,7 +27,7 @@ class StorePaymentRequest extends FormRequest
     public function rules()
     {
         return [
-            'trip_id' => ['required', 'integer', 'exists:locations,id'],
+            'trip_id' => ['required', 'integer', 'exists:fleet_trips,id'],
             'customer_name' => ['required', 'string', 'max:255'],
 
             'bill_no' => ['required', 'string', 'max:8', 'unique:fleet_sales,bill_number'],
@@ -46,9 +46,10 @@ class StorePaymentRequest extends FormRequest
 
             // Items
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product' => ['required', 'regex:/^[a-zA-Z0-9\s\-]+$/', 'max:15'],
+            'items.*.product' => ['required', 'string', 'max:255'],
+            'items.*.grade' => ['nullable', 'string', 'max:255'],
             'items.*.quantity' => ['required', 'string', 'numeric', 'min:0.01'],
-            'items.*.unit' => ['required', 'string', 'in:kg,pcs'],
+            'items.*.unit' => ['required', 'string', 'max:255'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.total_price' => ['required', 'numeric', 'min:0'],
         ];

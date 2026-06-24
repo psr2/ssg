@@ -54,7 +54,10 @@
                 <th>#</th>
                 <th>Batch Code</th>
                 <th>Product</th>
+                <th>Grade</th>
                 <th>Location</th>
+                <th>Available Qty</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>

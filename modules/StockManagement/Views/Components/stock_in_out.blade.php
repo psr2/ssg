@@ -149,9 +149,13 @@
                     <label class="form-label">Grade</label>
                     <select class="form-select" name="products[][grade]">
                         <option value="" disabled selected>Select grade</option>
-                        <option value="1">A</option>
-                        <option value="2">B</option>
-                        <option value="3">C</option>
+                        @forelse ($grades ?? [] as $grade)
+                            <option value="{{ $grade->code }}">{{ $grade->name }}</option>
+                        @empty
+                            <option value="A">Grade A</option>
+                            <option value="B">Grade B</option>
+                            <option value="C">Grade C</option>
+                        @endforelse
                     </select>
                     <span class="error-grade text-danger small"></span>
                 </div>

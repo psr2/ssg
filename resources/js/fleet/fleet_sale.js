@@ -1,31 +1,4 @@
-/**
- * Handles click events on dynamically generated buttons with class 'btn-select-route',
- * setting the trip ID from the button's data-trip attribute into the trip_id input field.
- */
-document.addEventListener("click", (e) => {
-    // Check if the clicked element has the btn-select-route class
-    if (e.target && e.target.classList.contains("btn-select-route")) {
-        // Prevent default button behavior (e.g., form submission or modal toggle)
-        e.preventDefault();
-
-        // Log for debugging
-        console.log("Clicked on submit button");
-
-        // Retrieve trip ID from the button's data-trip attribute
-        const tripTag = e.target.getAttribute("data-trip");
-
-        // Log trip ID for debugging
-        console.log("Trip ID:", tripTag);
-
-        // Set the trip ID into the trip_id input field
-        const tripInput = document.getElementById("trip_id");
-        if (tripInput) {
-            tripInput.value = tripTag;
-        } else {
-            console.error("Input element with ID 'trip_id' not found.");
-        }
-    }
-});
+// Handles selection state for the dropdown list of latest trips
 
 
 /**
@@ -128,7 +101,9 @@ function appendToTable(data) {
                     data-bs-target="#saleModal"
                     data-bs-toggle="modal"
                     data-bs-dismiss="modal"
-                    data-trip="${route.id}">
+                    data-trip="${route.id}"
+                    data-tag="${route.tag}"
+                    data-route="${route.route_id}">
                     Select
                 </button>
             </td>
@@ -160,6 +135,55 @@ document.addEventListener("DOMContentLoaded", function () {
     const itemsTableBody = document.querySelector("#itemsTable tbody");
     const grandTotalInput = document.getElementById("grand_total");
 
+    // Check if there is a saved default trip that is not expired
+    const savedTripId = localStorage.getItem("default_trip_id");
+    const savedRouteId = localStorage.getItem("default_route_id");
+    const savedExpiry = localStorage.getItem("default_trip_expiry");
+
+    if (savedTripId && savedExpiry) {
+        if (Date.now() < parseInt(savedExpiry, 10)) {
+            const tripSelect = document.getElementById("trip_id_select");
+            const tripHidden = document.getElementById("trip_hidden");
+            if (tripSelect) {
+                tripSelect.value = savedTripId;
+            }
+            if (tripHidden) {
+                tripHidden.value = savedTripId;
+            }
+
+            if (savedRouteId) {
+                searchCustomerNames(savedRouteId);
+            }
+        } else {
+            localStorage.removeItem("default_trip_id");
+            localStorage.removeItem("default_route_id");
+            localStorage.removeItem("default_trip_expiry");
+        }
+    }
+
+    const tripSelect = document.getElementById("trip_id_select");
+    const tripHidden = document.getElementById("trip_hidden");
+    if (tripSelect) {
+        tripSelect.addEventListener("change", function () {
+            const selectedOption = tripSelect.options[tripSelect.selectedIndex];
+            const tripId = tripSelect.value;
+            const routeId = selectedOption.getAttribute("data-route") || "";
+
+            if (tripHidden) {
+                tripHidden.value = tripId;
+            }
+
+            if (routeId) {
+                searchCustomerNames(routeId);
+            }
+
+            // Save default selection with 1-hour expiry (3600 * 1000 ms)
+            localStorage.setItem("default_trip_id", tripId);
+            localStorage.setItem("default_route_id", routeId);
+            localStorage.setItem("default_trip_expiry", (Date.now() + 3600 * 1000).toString());
+        });
+    }
+
     // Function to recalc grand total
     function recalcGrandTotal() {
         let grandTotal = 0;
@@ -178,20 +202,57 @@ document.addEventListener("DOMContentLoaded", function () {
         const row = document.createElement("tr");
         row.setAttribute("data-index", rowIndex);
 
+        // Build product select options
+        let productOptions = '<option selected disabled value="">Select product</option>';
+        if (window.fleetProducts && window.fleetProducts.length) {
+            window.fleetProducts.forEach(prod => {
+                productOptions += `<option value="${prod.name}">${prod.name}</option>`;
+            });
+        }
+
+        // Build unit select options
+        let unitOptions = '<option selected disabled value="">Select unit</option>';
+        if (window.fleetUnits && window.fleetUnits.length) {
+            window.fleetUnits.forEach(unit => {
+                unitOptions += `<option value="${unit.abbreviation}">${unit.name} (${unit.abbreviation})</option>`;
+            });
+        }
+
+        // Build grade select options
+        let gradeOptions = '<option selected disabled value="">Select grade</option>';
+        if (window.fleetGrades && window.fleetGrades.length) {
+            window.fleetGrades.forEach(grade => {
+                gradeOptions += `<option value="${grade.code}">${grade.name}</option>`;
+            });
+        } else {
+            // fallback static grades
+            gradeOptions += `
+                <option value="A">Grade A</option>
+                <option value="B">Grade B</option>
+                <option value="C">Grade C</option>
+            `;
+        }
+
         row.innerHTML = `
             <td>
-                <input type="text" class="form-control item-product" name="items[product][]" required>
+                <select class="form-select item-product" name="items[product][]" required>
+                    ${productOptions}
+                </select>
                 <span class="error error-items-${rowIndex}-product text-danger text-small"></span>
+            </td>
+            <td>
+                <select class="form-select item-grade" name="items[grade][]" required>
+                    ${gradeOptions}
+                </select>
+                <span class="error error-items-${rowIndex}-grade text-danger text-small"></span>
             </td>
             <td>
                 <input type="number" class="form-control item-qty" name="items[qty][]" min="0" step="any" required>
                 <span class="error error-items-${rowIndex}-quantity text-danger text-small"></span>
             </td>
             <td style="width:15%;">
-                <select class=" form-select item-unit" name="items[unit][]">
-                    <option selected disabled>Select Unit</option>
-                    <option value="kg">kg</option>
-                    <option value="pcs">pcs</option>
+                <select class="form-select item-unit" name="items[unit][]" required>
+                    ${unitOptions}
                 </select>
                 <span class="error error-items-${rowIndex}-unit text-danger text-small"></span>
             </td>
@@ -263,7 +324,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Collect payload
         let payload = {
-            trip_id: document.getElementById("trip_id").value || "",
+            trip_id: document.getElementById("trip_hidden").value || "",
             payment_date: document.getElementById("payment_date").value || "",
             customer_name: document.getElementById("customer_name").value.trim(),
             bill_no: document.getElementById("bill_no").value.trim(),
@@ -278,6 +339,7 @@ document.addEventListener("DOMContentLoaded", function () {
         itemsTableBody.querySelectorAll("tr").forEach(row => {
             const index = row.getAttribute("data-index");
             const product = row.querySelector(".item-product")?.value.trim() || "";
+            const grade = row.querySelector(".item-grade")?.value || "";
             const qty = row.querySelector(".item-qty")?.value || "";
             const unit = row.querySelector(".item-unit")?.value || "";
             const unit_price = row.querySelector(".item-price")?.value || "";
@@ -286,6 +348,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (product && qty && unit_price && unit) {
                 payload.items.push({
                     product: product,
+                    grade: grade,
                     quantity: qty,
                     unit: unit,
                     unit_price: unit_price,
@@ -307,11 +370,52 @@ document.addEventListener("DOMContentLoaded", function () {
 
         let success = await storePayments(payload);
         if (success) {
-            let modal = bootstrap.Modal.getInstance(document.getElementById("saleModal"));
-            modal.hide();
-            window.location.reload();
+            resetSaleModal();
         }
     });
+
+    let hasNewSaleAdded = false;
+
+    function resetSaleModal() {
+        // Clear text inputs
+        document.getElementById("customer_name").value = "";
+        document.getElementById("bill_no").value = "";
+        document.getElementById("amount_paid").value = "";
+        document.getElementById("notes").value = "";
+
+        const newCustName = document.getElementById("new_customer_name");
+        if (newCustName) newCustName.value = "";
+        const newRtName = document.getElementById("new_route_name");
+        if (newRtName) newRtName.value = "";
+        const newCustContact = document.getElementById("new_customer_contact");
+        if (newCustContact) newCustContact.value = "";
+        const newLocName = document.getElementById("new_location_name");
+        if (newLocName) newLocName.value = "";
+
+        // Reset items table: clear all rows and add one empty row
+        itemsTableBody.innerHTML = "";
+        addRow();
+
+        // Recalc grand total
+        recalcGrandTotal();
+
+        // Clear all error spans
+        clearErrorSpans();
+
+        // Mark as added
+        hasNewSaleAdded = true;
+
+        alert("Sale record created successfully!");
+    }
+
+    const saleModalEl = document.getElementById("saleModal");
+    if (saleModalEl) {
+        saleModalEl.addEventListener("hidden.bs.modal", function () {
+            if (hasNewSaleAdded) {
+                window.location.reload();
+            }
+        });
+    }
 
     // Store payment via API
     async function storePayments(payload) {
@@ -370,6 +474,10 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
 
+
+            if (response.ok) {
+                return true;
+            }
 
         } catch (err) {
             console.error("Error creating sale:", err);
@@ -457,70 +565,41 @@ function clearDateError() {
 }
 
 // Main wiring
+const tripTagInput = document.getElementById('trip-tag');
 const routeSelect = document.getElementById('route-name');
 const tripDateInput = document.getElementById('trip-date');
 
-if (routeSelect) {
-    routeSelect.addEventListener('change', function (e) {
-        // if trip-date input not present, bail out early
-        if (!tripDateInput) return;
+let tripSearchTimeout = null;
+function executeTripSearchDebounced() {
+    clearTimeout(tripSearchTimeout);
+    tripSearchTimeout = setTimeout(() => {
+        const tag = tripTagInput ? tripTagInput.value.trim() : "";
+        const tripDateRaw = tripDateInput ? tripDateInput.value : "";
+        const routeName = routeSelect ? routeSelect.value : "";
 
-        const routeName = normalizeVal(routeSelect.value);
-        const tripDateRaw = normalizeVal(tripDateInput.value);
+        const payload = {};
+        if (tag) payload.tag = tag;
+        if (tripDateRaw) payload.trip_date = tripDateRaw;
+        if (routeName) payload.routeName = routeName;
 
-        // if route value looks like a placeholder, treat as not selected
-        if (!isValidRouteValue(routeName)) {
-            // optionally clear error and do nothing
-            clearDateError();
-            return;
-        }
-
-        // If date is not valid, block and show error (edge case: route selected first)
-        if (!isValidDateValue(tripDateRaw)) {
-            showDateError('Please select a trip date before choosing a route.');
-            // focus on date so user can pick it quickly
-            try { tripDateInput.focus(); } catch (err) { }
-            return;
-        }
-
-        // Date is valid → clear any error and proceed
-        clearDateError();
-        const payload = { trip_date: tripDateRaw, routeName: routeName };
-        // Call your search function
-        console.log(routeName + "route name is")
         searchRoutes(payload);
-        searchCustomerNames();
-    });
+    }, 250);
 }
 
-// If user picks date *after* selecting route, auto-run search (if route valid)
-if (tripDateInput) {
-    tripDateInput.addEventListener('change', function (e) {
-        clearDateError();
-
-        const tripDateRaw = normalizeVal(tripDateInput.value);
-        if (!isValidDateValue(tripDateRaw)) {
-            // user cleared date — nothing to do
-            return;
+if (tripTagInput) {
+    tripTagInput.addEventListener('input', executeTripSearchDebounced);
+}
+if (routeSelect) {
+    routeSelect.addEventListener('change', () => {
+        executeTripSearchDebounced();
+        const routeId = routeSelect.value;
+        if (routeId) {
+            searchCustomerNames(routeId);
         }
-
-        const routeName = routeSelect ? normalizeVal(routeSelect.value) : '';
-        if (!isValidRouteValue(routeName)) {
-            // route isn't chosen yet; optionally notify user to pick route first
-            // showDateError('Select a route to run the search after picking date.');
-            return;
-        }
-
-
-        const payload = { trip_date: tripDateRaw, routeName: routeName };
-
-        searchCustomerNames(routeName)
-
-        searchRoutes();
-
-
-
     });
+}
+if (tripDateInput) {
+    tripDateInput.addEventListener('change', executeTripSearchDebounced);
 }
 
 let customerNames = []; // Will be array of { id, name }
@@ -534,11 +613,14 @@ const fuseOptions = {
 };
 
 // Fetch and convert customer data from object format
-async function searchCustomerNames() {
-    const routeNameSelect = document.getElementById('route-name');
-    if (!routeNameSelect) return;
-
-    const payloadValue = routeNameSelect.value;
+async function searchCustomerNames(routeId = null) {
+    let payloadValue = routeId;
+    if (!payloadValue) {
+        const routeNameSelect = document.getElementById('route-name');
+        if (!routeNameSelect) return;
+        payloadValue = routeNameSelect.value;
+    }
+    if (!payloadValue) return;
 
     try {
         const response = await fetch('/fleet/customers', {

@@ -72,9 +72,13 @@
                 <label class="form-label">Grade</label>
                 <select class="form-select" id="t_grade">
                     <option value="" disabled selected>-- Select --</option>
-                    <option>A</option>
-                    <option>B</option>
-                    <option>C</option>
+                    @forelse ($grades ?? [] as $grade)
+                        <option value="{{ $grade->code }}">{{ $grade->name }}</option>
+                    @empty
+                        <option value="A">Grade A</option>
+                        <option value="B">Grade B</option>
+                        <option value="C">Grade C</option>
+                    @endforelse
                 </select>
                 <span id="t_grade_error" class="text-danger small"></span>
             </div>

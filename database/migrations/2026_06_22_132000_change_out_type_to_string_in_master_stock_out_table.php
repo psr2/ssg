@@ -15,6 +15,14 @@ return new class extends Migration
 
     public function down(): void
     {
+        try {
+            \Illuminate\Support\Facades\DB::table('master_stock_out')
+                ->whereNotIn('out_type', ['sale', 'transfer', 'return', 'wastage'])
+                ->update(['out_type' => 'sale']);
+        } catch (\Exception $e) {
+            // Ignore if table or column doesn't exist
+        }
+
         Schema::table('master_stock_out', function (Blueprint $table) {
             $table->enum('out_type', ['sale', 'transfer', 'return', 'wastage'])->default('sale')->change();
         });

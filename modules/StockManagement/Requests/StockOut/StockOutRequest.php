@@ -145,16 +145,18 @@ class StockOutRequest extends FormRequest
                 $batchCode = $item['batch_code'] ?? null;
                 $locationId = $item['location_id'] ?? null;
                 $grade = $item['grade'] ?? null;
+                $productId = $item['product_id'] ?? null;
 
+                if (!$productId || !$locationId || !$batchCode || !$grade) {
+                    $fail("Missing required product, location, batch, or grade details for item " . ($itemIndex + 1));
+                    return;
+                }
 
-                $stockAvailable = StockSummary::where('batch_id', $batchCode)
-                    ->where('location_id', $locationId)
-                    ->where('current_qty', '>=', $value)
-                    ->where('grade' ,'=',$grade)
-                    ->exists();
+                $service = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+                $available = $service->getAvailableStock((int)$locationId, (int)$productId, $batchCode, $grade);
 
-                if (!$stockAvailable) {
-                    $fail("The quantity for item " . ($itemIndex + 1) . " exceeds available stock.");
+                if ($available < $value) {
+                    $fail("The quantity for item " . ($itemIndex + 1) . " ($value) exceeds available stock ($available).");
                 }
             }
         };

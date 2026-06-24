@@ -26,13 +26,20 @@ class StockOutRepository
 
             // Insert items
             foreach ($data['items'] as $item) {
+                $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where('batch', $item['batch_code'])
+                    ->where('location_id', $item['location_id'])
+                    ->first();
+
                 $master->items()->create([
-                    'product_id' => $item['product_id'] ?? null,  // you will map product name → id before this
-                    'unit_id'    => $item['unit_id'] ?? null,     // you will map unit → id before this
+                    'product_id' => $item['product_id'] ?? null,
+                    'unit_id'    => $item['unit_id'] ?? null,
                     'quantity'   => $item['quantity'],
                     'unit_cost'  => $item['unit_cost'] ?? null,
                     'total_cost' => $item['total'] ?? null,
                     'location_id'=> $item['location_id'],
+                    'stock_purchase_item_id' => $purchaseItem ? $purchaseItem->id : null,
+                    'grade'      => $item['grade'] ?? null,
+                    'batch_code' => $item['batch_code'] ?? null,
                 ]);
             }
 

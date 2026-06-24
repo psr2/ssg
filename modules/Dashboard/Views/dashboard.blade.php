@@ -70,7 +70,7 @@
                     </ul>
                 </li>
 
-                <li class="menu-item {{ request()->is('stock-movements') || request()->is('stock-transfer') || request()->is('stock-adjustments') ? 'active' : '' }}">
+                <li class="menu-item {{ request()->is('stock-movements') || request()->is('stock-transfer') || request()->is('stock-adjustments') || request()->is('stock-segregation') ? 'active' : '' }}">
                     <div class="menu-title">
                         <i class="bi bi-box-seam"></i>&nbsp;Stock Management
                         <i class="bi bi-caret-down"></i>
@@ -79,6 +79,7 @@
                         <li><a href="/stock-movements"><i class="bi bi-arrow-down-up"></i> Stock In/Out</a></li>
                         <li><a href="/stock-transfer"><i class="bi bi-arrow-left-right"></i> Internal Transfer</a></li>
                         <li><a href="/stock-adjustments"><i class="bi bi-sliders"></i> Stock Adjustment</a></li>
+                        <li><a href="/stock-segregation"><i class="bi bi-diagram-3"></i> Stock Segregation</a></li>
                     </ul>
                 </li>
 
@@ -92,6 +93,7 @@
                         <li><a href="/fleet-vehicles"><i class="bi bi-truck"></i> Vehicles</a></li>
                         <li><a href="/fleet-trips"><i class="bi bi-calendar2-week"></i> Fleet Trips</a></li>
                         <li><a href="/fleet/sale"><i class="bi bi-receipt"></i> Fleet Sales</a></li>
+                        <li><a href="#" data-bs-toggle="modal" data-bs-target="#uploadReportModal"><i class="bi bi-file-earmark-arrow-up"></i> Upload Sale Report</a></li>
                     </ul>
                 </li>
 
@@ -128,6 +130,8 @@
                     </ul>
                 </li>
 
+
+
                 <li class="menu-item {{ request()->is('reports/*') ? 'active' : '' }}">
                     <div class="menu-title">
                         <i class="bi bi-shop"></i>&nbsp;Reports
@@ -146,8 +150,8 @@
             <!-- Bottom Menu Items -->
             <div class="mt-auto bg-grey">
                 <ul class="sidebar-menu p-0 m-0">
-                    <li class="menu-item" style="font-size: 0.72em;">
-                        <a href="/settings" class="text-white text-decoration-none d-flex align-items-center px-3 py-2">
+                    <li class="menu-item {{ request()->is('settings*') ? 'active' : '' }}" style="font-size: 0.72em;">
+                        <a href="/settings/grades" class="text-white text-decoration-none d-flex align-items-center px-3 py-2">
                             <i class="bi bi-gear me-2"></i> Settings
                         </a>
                     </li>
@@ -228,9 +232,39 @@
 
         </div>
 
+    <!-- Upload Fleet Sale Report Modal -->
+    <div class="modal fade" id="uploadReportModal" tabindex="-1" aria-labelledby="uploadReportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="uploadReportForm" enctype="multipart/form-data">
+                    <div class="modal-header" style="background-color: #f1f5f1ff;">
+                        <h5 class="modal-title" id="uploadReportModalLabel">Upload Fleet Sale Report <i class="bi bi-file-earmark-arrow-up"></i></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="report_trip_id" class="form-label">Select Trip (Latest 5)</label>
+                            <select id="report_trip_id" name="trip_id" class="form-select" required>
+                                <option value="" disabled selected>Loading trips...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="report_file" class="form-label">Select Excel File (.xlsx, .xls)</label>
+                            <input class="form-control" type="file" id="report_file" name="report_file" accept=".xlsx, .xls" required>
+                        </div>
+                        <div id="upload-error-message" class="text-danger text-small mt-2" style="display: none;"></div>
+                        <div id="upload-success-message" class="text-success text-small mt-2" style="display: none;"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-success" id="btn-upload-report">Upload</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
-
+    @vite(['resources/js/fleet/upload_report.js'])
 </body>
 
 <script>

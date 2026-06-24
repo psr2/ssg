@@ -17,6 +17,31 @@ class WarehouseSaleRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('payment_status')) {
+            $this->merge([
+                'payment_status' => strtolower($this->input('payment_status')),
+            ]);
+        }
+
+        if ($this->has('payment_mode')) {
+            $this->merge([
+                'payment_mode' => strtolower($this->input('payment_mode')),
+            ]);
+        }
+
+        if ($this->has('items') && is_array($this->input('items'))) {
+            $items = $this->input('items');
+            foreach ($items as $index => $item) {
+                if (isset($item['unit'])) {
+                    $items[$index]['unit'] = strtolower($item['unit']);
+                }
+            }
+            $this->merge(['items' => $items]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -25,8 +50,8 @@ class WarehouseSaleRequest extends FormRequest
             'bill_no'        => ['required', 'string', 'max:50'],
             'payment_status' => ['required', 'string', 'in:paid,partial,unpaid'],
             'amount_paid'    => ['required_if:payment_status,paid,partial', 'numeric', 'min:0'],
-            'payment_date'   => ['required', 'date', Rule::date()->beforeOrEqual(today())],
-            'payment_mode'   => ['required', 'in:upi,cash,bank,other'],
+            'payment_date'   => ['required', 'date', 'before_or_equal:' . today()->addDays(2)->toDateString()],
+            'payment_mode'   => ['required', 'in:upi,cash,bank,other,UPI,Cash,Other,Bank,Other'],
             'notes'          => ['sometimes', 'nullable', 'string'],
             'shop_id'        => ['required', 'integer', 'exists:locations,id'],
 
@@ -39,7 +64,7 @@ class WarehouseSaleRequest extends FormRequest
             'items'                => ['required', 'array', 'min:1'],
             'items.*.product'      => ['required', 'integer', 'exists:products,id'],
             'items.*.batch_code'   => ['required', 'string'],
-            'items.*.grade'        => ['required', 'integer', 'in:1,2'],
+            'items.*.grade'        => ['required', 'string'],
             'items.*.quantity'     => ['required', 'numeric', 'min:0.01'],
             'items.*.unit'         => ['required', 'string', 'in:kg,pcs'],
             'items.*.unit_price'   => ['required', 'numeric', 'min:0'],
@@ -111,6 +136,8 @@ class WarehouseSaleRequest extends FormRequest
 
         Log::debug("validateWarehouseStock: warehouseId = {$warehouseId}");
 
+        $segregationService = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+
         foreach ($items as $index => $item) {
             $productId    = $item['product'] ?? null;
             $requestedQty = floatval($item['quantity'] ?? 0);
@@ -129,34 +156,17 @@ class WarehouseSaleRequest extends FormRequest
             Log::debug("Grade: " . $grade);
             Log::debug("Warehouse ID: " . $warehouseId);
 
-            $inventory = WarehouseInventory::where('warehouse_id', $warehouseId)
-                ->where('product_id', $productId)
-                ->where('batch', $batchCode)
-                ->where('grade', $grade)
-                ->first();
-
-            if (!$inventory) {
-                // Fallback: search ignoring grade
-                $inventory = WarehouseInventory::where('warehouse_id', $warehouseId)
-                    ->where('product_id', $productId)
-                    ->where('batch', $batchCode)
-                    ->first();
+            try {
+                $availableQty = $segregationService->getAvailableStock($warehouseId, $productId, $batchCode, $grade);
+            } catch (\Exception $e) {
+                Log::error("Error calculating dynamic stock: " . $e->getMessage());
+                $availableQty = 0.00;
             }
 
-            Log::debug("Query result for item at index {$index}: " . json_encode($inventory));
-
-            if (!$inventory) {
+            if ($requestedQty > $availableQty) {
                 $validator->errors()->add(
                     'common_error',
-                    "Inventory not found for product ID {$productId} and batch {$batchCode}."
-                );
-                continue;
-            }
-
-            if ($requestedQty > $inventory->qty) {
-                $validator->errors()->add(
-                    'common_error',
-                    "Requested quantity ({$requestedQty}) exceeds available warehouse stock ({$inventory->qty}) for batch {$batchCode}."
+                    "Requested quantity ({$requestedQty}) exceeds available warehouse stock ({$availableQty}) for batch {$batchCode} (Grade: {$grade})."
                 );
             }
         }

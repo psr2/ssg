@@ -10,6 +10,7 @@ use Modules\Inventory\API\Contracts\ProductInterface;
 
 use Modules\Inventory\Models\UnitOfMeasurement;
 use Modules\StockManagement\Services\StockMovement\ReferenceNumber\PurchaseReferenceNumberGenerator as ReferenceNumber;
+use Modules\StockManagement\Models\Segregation\StockSegregation;
 
 class StockViewManagementResourceController extends Controller
 {
@@ -28,12 +29,22 @@ class StockViewManagementResourceController extends Controller
         $productList=$this->listOfProducts();
         $units = UnitOfMeasurement::all();
 
+        $grades = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
+                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+            }
+        } catch (\Exception $e) {
+            // Database not ready or table doesn't exist
+        }
+
         return view(
             'stock_management::stock_management_dashboard',
             [
                 'location' => $locations ,
                 'productList'=>$productList,
-                'units' => $units
+                'units' => $units,
+                'grades' => $grades
             ]
         );
     }
@@ -42,7 +53,16 @@ class StockViewManagementResourceController extends Controller
     {
         $productList=$this->listOfProducts();
 
-        return view('stock_management::Components.stock_transfer' ,compact('productList'));
+        $grades = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
+                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+            }
+        } catch (\Exception $e) {
+            // Database not ready or table doesn't exist
+        }
+
+        return view('stock_management::Components.stock_transfer', compact('productList', 'grades'));
     }
 
     public function stockTransit(): View
@@ -53,6 +73,35 @@ class StockViewManagementResourceController extends Controller
      public function overview(): View
     {
         return view('stock_management::Components.overview');
+    }
+
+    public function stockSegregation(LocationRepository $repo): View
+    {
+        $locationJson = $this->locationService->shareLocation($repo);
+        $locations = json_decode($locationJson, true);
+        $productList = $this->listOfProducts();
+        $units = UnitOfMeasurement::all();
+        
+        $recentSegregations = StockSegregation::with(['location', 'product', 'items'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $grades = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
+                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+            }
+        } catch (\Exception $e) {
+            // Database not ready or table doesn't exist
+        }
+
+        return view('stock_management::stock_segregation', [
+            'location' => $locations,
+            'productList' => $productList,
+            'units' => $units,
+            'recentSegregations' => $recentSegregations,
+            'grades' => $grades
+        ]);
     }
 
 

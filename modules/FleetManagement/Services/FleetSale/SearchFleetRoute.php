@@ -26,20 +26,23 @@ class SearchFleetRoute
      */
     public function findRoute($validated): mixed
     {
-
         try {
-            $fleetTrip = FleetTrip::where('start_date', $validated['trip_date'])
-                ->where('route_id', $validated['routeName'])
-                ->get();
+            $query = FleetTrip::query();
 
-            // Check if a record was found
-            if (!$fleetTrip) {
-                Log::debug($fleetTrip);
-                Log::info('No route found for date: ' . $validated['date'] . ' and route: ' . $validated['route']);
-                return 'No route found';
+            if (!empty($validated['tag'])) {
+                $query->where('tag', 'like', '%' . $validated['tag'] . '%');
             }
 
-            // Return the route name (assuming route_name is a field in FleetTrip)
+            if (!empty($validated['trip_date'])) {
+                $query->where('start_date', $validated['trip_date']);
+            }
+
+            if (!empty($validated['routeName'])) {
+                $query->where('route_id', $validated['routeName']);
+            }
+
+            $fleetTrip = $query->get();
+
             return $fleetTrip;
         } catch (\Exception $e) {
             Log::error('Error finding route: ' . $e->getMessage());

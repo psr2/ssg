@@ -46,11 +46,14 @@ class RouteSaleRepository
                     Log::debug("else if executed");
 
 
+                    $trip = \Modules\FleetManagement\Models\FleetTrip::find($payload['trip_id']);
+                    $routeId = $trip ? $trip->route_id : null;
+
                     $customer = FleetCustomer::create([
                         'customer_name' => $payload['customer_name'],
                         'customer_phone' => $payload['customer_contact'] ?? null,
-                        'location' => $payload['location_name'] ?? null,
-                        'route_id' => $payload['trip_id'],
+                        'location' => !empty($payload['location_name']) ? $payload['location_name'] : 'N/A',
+                        'route_id' => $routeId,
                     ]);
 
                     $customerId = $customer->id;
@@ -70,15 +73,22 @@ class RouteSaleRepository
                 ]);
 
                 // 2. Insert Sale Items
+                $hasGradeColumn = \Illuminate\Support\Facades\Schema::hasColumn('fleet_sale_items', 'grade');
                 foreach ($payload['items'] as $item) {
-                    FleetSaleItem::create([
+                    $itemData = [
                         'fleet_sale_id' => $sale->id,
                         'product_name'  => $item['product'],
                         'quantity'      => $item['quantity'],
                         'unit'          => $item['unit'] ?? null,
                         'unit_price'    => $item['unit_price'],
                         'total_price'   => $item['total_price'], // fixed
-                    ]);
+                    ];
+
+                    if ($hasGradeColumn) {
+                        $itemData['grade'] = $item['grade'] ?? null;
+                    }
+
+                    FleetSaleItem::create($itemData);
                 }
 
                 // 3. Insert Payment (outside the loop!)
@@ -95,7 +105,7 @@ class RouteSaleRepository
         } catch (Throwable $e) {
             throw new FleetPaymentStoreFailureException(
                 $e->getMessage(),
-                $e->getCode(),
+                is_numeric($e->getCode()) ? (int) $e->getCode() : null,
                 $e
             );
         }

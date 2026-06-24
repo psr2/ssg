@@ -25,4 +25,13 @@ class StockOutController extends Controller
             'message' => 'Stock entry saved successfully.'
         ],201);
    }
+
+   /**
+    * Search batches available for stock out.
+    */
+   public function searchBatches(Request $request, \Modules\StockManagement\Repositories\BatchCode\BatchCodeRepository $repo)
+   {
+       $results = $repo->searchPhysicalStock($request->all());
+       return response()->json($results);
+   }
 }

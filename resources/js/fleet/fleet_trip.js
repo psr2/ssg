@@ -1,45 +1,78 @@
+// Batch Logic
+let currentBatchInput = null;
 
-//Batch Logic 
+// Track clicked batch input and auto-populate search filters from the triggering row
+document.addEventListener('click', function (e) {
+    const input = e.target.closest('.batch_code_dynamic');
+    if (input) {
+        currentBatchInput = input;
+        console.log('Clicked batch input:', currentBatchInput);
 
-/**
- * Batch code is currently working only on single product stock out
- * will not work on dynamically generated product items
- * Result of the fetch call is append to input with id batchCodeInput
- */
+        const row = input.closest('.product-row');
+        if (row) {
+            const productSelect = row.querySelector('[data-field="product_id"]');
+            const productId = productSelect ? productSelect.value : '';
 
+            const locationSelect = row.querySelector('[data-field="location_id"]');
+            const locationId = locationSelect ? locationSelect.value : '';
 
-document.getElementById('search_batch_code').addEventListener('click', function (e) {
+            const modalProductSelect = document.querySelector('#batchCodeSearchForm select[name="product_listing"]');
+            const modalLocationSelect = document.querySelector('#batchCodeSearchForm select[name="location"]');
 
-    e.preventDefault();
+            if (modalProductSelect) {
+                modalProductSelect.value = productId || '';
+            }
+            if (modalLocationSelect) {
+                modalLocationSelect.value = locationId || '';
+            }
 
-    console.log('fired batch code submi button')
+            // Clear previous results
+            const tbody = document.querySelector('#batchCodeResults tbody');
+            if (tbody) {
+                tbody.innerHTML = '';
+            }
 
-    const product = document.querySelector('select[name="product_listing"]').value;
-    const location = document.querySelector('select[name="location"]').value;
-    const purchaseDate = document.querySelector('input[name="dateFrom"]').value;
+            // Auto-trigger search if both product and location are selected
+            if (modalProductSelect && modalLocationSelect && productId && locationId) {
+                setTimeout(() => {
+                    const searchBtn = document.getElementById('search_batch_code');
+                    if (searchBtn) {
+                        searchBtn.click();
+                    }
+                }, 100);
+            }
+        }
+    }
+});
 
-    // Store them in variables or an object
-    const data = {
-        product: product,
-        location: location,
-        purchaseDate: purchaseDate
-    };
+// Handle search form submission
+document.addEventListener('submit', function (e) {
+    if (e.target && e.target.id === 'batchCodeSearchForm') {
+        e.preventDefault();
 
-    fetch("search-batch-code", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify(data)
-    })
+        const form = e.target;
+        const data = {
+            product_listing: form.product_listing.value,
+            location:        form.location.value,
+            dateFrom:        form.dateFrom.value,
+        };
+
+        fetch("/search-batch-code", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify(data)
+        })
         .then(res => res.json())
         .then(response => {
             const tbody = document.querySelector('#batchCodeResults tbody');
+            if (!tbody) return;
             tbody.innerHTML = "";
 
             if (response.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center">No results found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center">No results found.</td></tr>`;
             } else {
                 response.forEach((item, index) => {
                     tbody.innerHTML += `
@@ -47,85 +80,42 @@ document.getElementById('search_batch_code').addEventListener('click', function 
                         <td>${index + 1}</td>
                         <td>${item.batch_code}</td>
                         <td>${item.product}</td>
+                        <td>${item.grade}</td>
                         <td>${item.location}</td>
-                        <td><button class="btn btn-sm btn-success select-batch" data-batch-code="${item.batch_code}" data-id="${item.id}">Select</button></td>
+                        <td>${item.available_qty}</td>
+                        <td>
+                            <button data-bs-target="#tripModal" data-bs-toggle="modal"
+                                class="btn btn-sm btn-success select-batch"
+                                data-batch-code="${item.batch_code}"
+                                data-grade="${item.grade}">Select</button>
+                        </td>
                     </tr>`;
                 });
             }
         })
         .catch(error => console.error("Search failed:", error));
-});
-
-// Global variable to track which input was clicked
-let currentBatchInput = null;
-
-// Track clicked batch input
-document.addEventListener('click', function (e) {
-    if (e.target && e.target.classList.contains('batch_code_dynamic')) {
-        currentBatchInput = e.target;
-        console.log('Clicked input:', currentBatchInput);
     }
 });
 
-// Attach listener once, delegate clicks on .select-batch buttons inside tbody
-document.querySelector('#batchCodeResults tbody').addEventListener('click', function (e) {
-    const target = e.target;
-
-    console.log("table click logged")
-
-    if (target && target.classList.contains('select-batch')) {
-        e.preventDefault();
-
-        const batchCode = target.getAttribute('data-batch-code');
-
+// Set selected batch code value back to input
+document.addEventListener('click', function (e) {
+    const selectBtn = e.target.closest('.select-batch');
+    if (selectBtn) {
+        const batchCode = selectBtn.getAttribute('data-batch-code');
+        const grade = selectBtn.getAttribute('data-grade');
         if (currentBatchInput) {
             currentBatchInput.value = batchCode;
-            console.log('Batch code set:', batchCode);
-        } else {
-            console.warn('No batch input was selected before selecting batch code');
-        }
-    }
-});
+            console.log('Batch code set to:', batchCode);
 
-
-document.addEventListener('DOMContentLoaded', function () {
-    // Get reference to <tbody> that holds the dynamic rows
-    const tbody = document.getElementById('batchCodeResults'); // <-- Replace with actual ID
-
-    if (!tbody) {
-        console.error('Tbody element not found');
-        return;
-    }
-
-    // Use event delegation to listen for clicks on .select-batch buttons
-
-    tbody.addEventListener('click', function (e) {
-        const target = e.target;
-
-        if (target && target.classList.contains('select-batch')) {
-            e.preventDefault();
-
-            console.log('Click detected on dynamically created button');
-
-            const batchCode = target.getAttribute('data-batch-code');
-            const batchCodeInput = document.getElementById('batchCodeInput');
-
-            if (batchCodeInput) {
-                batchCodeInput.value = batchCode;
-                console.log('Batch code set:', batchCode);
-            } else {
-                console.warn('Input with id "batch_code" not found');
+            const row = currentBatchInput.closest('.product-row');
+            if (row) {
+                const gradeInput = row.querySelector('[data-field="grade"]');
+                if (gradeInput && grade) {
+                    gradeInput.value = grade;
+                }
             }
-
-            // const modalEl = document.getElementById('staticBackdropBatchCode');
-            // const modal = bootstrap.Modal.getInstance(modalEl);
-            // if (modal) {
-            //     modal.hide();
-            // } else {
-            //     console.warn('Bootstrap modal instance not found');
-            // }
         }
-    });
+    }
 });
 
 
@@ -202,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const productTemplate = document.getElementById('productRowTemplate');
     const sentContainer = document.getElementById('productsSentContainer');
-    const returnedContainer = document.getElementById('productsReturnedContainer');
+    // const returnedContainer = document.getElementById('productsReturnedContainer');
 
     const addRow = (container, section) => {
         const clone = productTemplate.content.cloneNode(true);
@@ -234,9 +224,9 @@ document.addEventListener('DOMContentLoaded', function () {
         addRow(sentContainer, 'sent');
     });
 
-    document.getElementById('addProductReturnedBtn').addEventListener('click', () => {
-        addRow(returnedContainer, 'returned');
-    });
+    // document.getElementById('addProductReturnedBtn').addEventListener('click', () => {
+    //     addRow(returnedContainer, 'returned');
+    // });
 
     // Remove row + reindex
     document.addEventListener('click', e => {
@@ -245,13 +235,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const parent = row.parentElement;
             row.remove();
             if (parent.id.includes('Sent')) reindex(parent, 'sent');
-            else reindex(parent, 'returned');
+            // else reindex(parent, 'returned');
         }
     });
 
     // Initialize with one default row each
     addRow(sentContainer, 'sent');
-    addRow(returnedContainer, 'returned');
+    // addRow(returnedContainer, 'returned');
 
 
     // Handle form submit
@@ -266,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // collect dynamic rows
         const sent = collectRows(sentContainer);
-        const returned = collectRows(returnedContainer);
+        // const returned = collectRows(returnedContainer);
 
         console.log(sent)
 
@@ -278,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
             start_date,
             tag,
             sent,
-            returned
+            // returned
         };
 
         createTrip(data);
@@ -286,6 +276,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // helper to collect all dynamic rows
     function collectRows(container) {
+        if (!container) return [];
         const rows = [];
         container.querySelectorAll('.product-row').forEach(row => {
             const rowData = {};
@@ -313,14 +304,15 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(result => {
                 if (result.errors) {
                     showErrors(result.errors);
+                } else if (result.success === false) {
+                    alert(result.message || "Failed to create trip due to an error.");
                 } else {
+                    alert(result.message || "Trip created successfully.");
                     console.log("Trip created:", result);
-                    // Optionally reset form or close modal
+                    // Reset form and close modal
                     document.getElementById('fleetTripForm').reset();
                     sentContainer.innerHTML = '';
-                    returnedContainer.innerHTML = '';
                     addRow(sentContainer, 'sent');
-                    addRow(returnedContainer, 'returned');
                     bootstrap.Modal.getInstance(document.getElementById('tripModal')).hide();
                 }
             })

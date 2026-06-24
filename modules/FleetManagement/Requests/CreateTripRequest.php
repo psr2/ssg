@@ -35,12 +35,12 @@ class CreateTripRequest extends FormRequest
             'sent.*.location_id' => 'required|exists:locations,id',
 
             // Products Returned (optional but must be valid if provided)
-            'returned' => 'nullable|array',
-            'returned.*.product_id'  => 'required_with:returned|exists:products,id',
-            'returned.*.batch'       => 'required|string|max:255',
-            'returned.*.grade'       => 'required|string|max:255',
-            'returned.*.quantity'    => 'required_with:returned|numeric|min:0',
-            'returned.*.location_id' => 'required_with:returned|exists:locations,id',
+            // 'returned' => 'nullable|array',
+            // 'returned.*.product_id'  => 'required_with:returned|exists:products,id',
+            // 'returned.*.batch'       => 'required|string|max:255',
+            // 'returned.*.grade'       => 'required|string|max:255',
+            // 'returned.*.quantity'    => 'required_with:returned|numeric|min:0',
+            // 'returned.*.location_id' => 'required_with:returned|exists:locations,id',
         ];
     }
 
@@ -68,14 +68,14 @@ class CreateTripRequest extends FormRequest
             'sent.*.quantity.min'           => 'Quantity must be greater than zero.',
             'sent.*.location_id.required'   => 'Location is required for each sent item.',
             'sent.*.batch.required'         => 'Batch is required for each sent item.',
-            'sent.*.grade.required'         => 'Batch is required for each sent item.',
+            'sent.*.grade.required'         => 'Grade is required for each sent item.',
 
 
 
             // Returned products
-            'returned.*.product_id.required_with'    => 'Returned product is required.',
-            'returned.*.quantity.required_with'      => 'Returned quantity is required.',
-            'returned.*.location_id.required_with'   => 'Returned location is required.',
+            // 'returned.*.product_id.required_with'    => 'Returned product is required.',
+            // 'returned.*.quantity.required_with'      => 'Returned quantity is required.',
+            // 'returned.*.location_id.required_with'   => 'Returned location is required.',
         ];
     }
 }

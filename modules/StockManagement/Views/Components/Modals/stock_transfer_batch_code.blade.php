@@ -52,8 +52,9 @@
                 <th>#</th>
                 <th>Batch Code</th>
                 <th>Product</th>
-                <th>Vendor</th>
+                <th>Grade</th>
                 <th>Location</th>
+                <th>Available Qty</th>
                 <th>Select</th>
               </tr>
             </thead>

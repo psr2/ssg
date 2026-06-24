@@ -11,6 +11,7 @@ Route::prefix('warehouse')->group(function () {
 
     // Overview page
     Route::get('/overview', [WarehouseOverview::class, 'index'])->name('warehouse.overview.index');
+    Route::get('/overview/inventory', [WarehouseOverview::class, 'getInventory'])->name('warehouse.overview.inventory');
 
     // Credit Details page & Search
     Route::get('/credits', [WarehouseCreditController::class, 'index'])->name('warehouse.credits.index');

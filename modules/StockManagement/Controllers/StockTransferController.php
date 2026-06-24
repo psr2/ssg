@@ -26,4 +26,13 @@ class StockTransferController extends Controller
             return response()->json(['error' => 'Unexpected error occurred.'], 500);
         }
     }
+
+    /**
+     * Search batches available for transfer.
+     */
+    public function searchBatches(\Illuminate\Http\Request $request, \Modules\StockManagement\Repositories\BatchCode\BatchCodeRepository $repo)
+    {
+        $results = $repo->searchPhysicalStock($request->all());
+        return response()->json($results);
+    }
 }

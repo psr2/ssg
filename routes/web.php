@@ -19,6 +19,7 @@ require base_path('modules/ShopManagement/Routes/web.php');
 require base_path('modules/Expenses/Routes/web.php');
 
 require base_path('modules/Warehouse/Routes/web.php');
+require base_path('modules/Settings/Routes/web.php');
 
 
 

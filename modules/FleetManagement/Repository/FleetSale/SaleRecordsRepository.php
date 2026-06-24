@@ -23,6 +23,8 @@ public function getSaleRecords($perPage = self::DEFAULT_RECORDS_PER_PAGE)
         ])
         ->leftJoin('fleet_sale_items', 'fleet_sales.id', '=', 'fleet_sale_items.fleet_sale_id')
         ->groupBy('fleet_sales.id', 'fleet_sales.bill_number', 'fleet_sales.customer_name', 'fleet_sales.total_amount', 'fleet_sales.created_at')
+        ->orderBy('fleet_sales.created_at', 'desc')
+        ->orderBy('fleet_sales.id', 'desc')
         ->paginate($perPage);
 }
 

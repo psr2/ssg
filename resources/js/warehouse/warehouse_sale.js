@@ -7,8 +7,26 @@ const whAddItemBtn      = document.getElementById('wh_addItemBtn');
 const whItemsTableBody  = document.querySelector('#wh_itemsTable tbody');
 const whGrandTotalInput = document.getElementById('wh_grand_total');
 let whProductList       = null;
-
 document.addEventListener('DOMContentLoaded', async function () {
+    const gradesDataEl = document.getElementById('grades-data');
+    const dbGrades = gradesDataEl ? JSON.parse(gradesDataEl.getAttribute('data-grades')) : [];
+
+    let gradeOpts = '<option selected disabled>select</option>';
+    if (dbGrades && dbGrades.length > 0) {
+        dbGrades.forEach(g => {
+            gradeOpts += `<option value="${g.code}">${g.name}</option>`;
+        });
+    } else {
+        const defaults = [
+            { code: 'A', name: 'Grade A' },
+            { code: 'B', name: 'Grade B' },
+            { code: 'C', name: 'Grade C' },
+            { code: 'Waste', name: 'Waste' }
+        ];
+        defaults.forEach(g => {
+            gradeOpts += `<option value="${g.code}">${g.name}</option>`;
+        });
+    }
 
     // ── Grand total recalculation ─────────────────────────────────────────────
     function recalcGrandTotal() {
@@ -50,9 +68,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             </td>
             <td style="width:15%;">
                 <select class="form-select wh-item-grade" name="items[grade][]">
-                    <option selected disabled>select</option>
-                    <option value="1">Big</option>
-                    <option value="2">Small</option>
+                    ${gradeOpts}
                 </select>
                 <span class="error error-items-${rowIndex}-grade text-danger text-small"></span>
             </td>
@@ -329,7 +345,7 @@ document.getElementById('batchCodeSearchForm')?.addEventListener('submit', funct
         tbody.innerHTML = '';
 
         if (!results.length) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center">No results found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No results found.</td></tr>`;
             return;
         }
 
@@ -339,11 +355,14 @@ document.getElementById('batchCodeSearchForm')?.addEventListener('submit', funct
                 <td>${i + 1}</td>
                 <td>${item.batch_code}</td>
                 <td>${item.product}</td>
+                <td>${item.grade}</td>
                 <td>${item.location}</td>
+                <td>${item.available_qty}</td>
                 <td>
                     <button data-bs-target="#warehouseSaleModal" data-bs-toggle="modal"
                         class="btn btn-sm btn-success wh-select-batch"
-                        data-batch-code="${item.batch_code}">Select</button>
+                        data-batch-code="${item.batch_code}"
+                        data-grade="${item.grade}">Select</button>
                 </td>
             </tr>`;
         });
@@ -354,7 +373,19 @@ document.getElementById('batchCodeSearchForm')?.addEventListener('submit', funct
 document.querySelector('#batchCodeResults tbody')?.addEventListener('click', function (e) {
     const btn = e.target.closest('.wh-select-batch, .select-batch');
     if (btn && whCurrentBatchInput) {
-        whCurrentBatchInput.value = btn.getAttribute('data-batch-code');
+        const batchCode = btn.getAttribute('data-batch-code');
+        const grade = btn.getAttribute('data-grade');
+        
+        whCurrentBatchInput.value = batchCode;
+
+        // Auto-select grade in the product row
+        const row = whCurrentBatchInput.closest('tr');
+        if (row) {
+            const gradeSelect = row.querySelector('.wh-item-grade');
+            if (gradeSelect && grade) {
+                gradeSelect.value = grade;
+            }
+        }
     }
 });
 

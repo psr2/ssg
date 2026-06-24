@@ -77,7 +77,7 @@
                 </tr>
             </thead>
             <tbody style="text-align: center">
-                @foreach ($saleRecords as $record)
+                @forelse ($saleRecords as $record)
                     <tr>
                         <td>{{ $record['bill_number'] }}</td>
                         <td>{{ $record['customer_name'] }} </td>
@@ -97,7 +97,13 @@
                             @endif
                         </td>
                     </tr>
-                @endforeach
+                @empty
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            <i class="bi bi-info-circle me-1"></i> No sale records found.
+                        </td>
+                    </tr>
+                @endforelse
             </tbody>
         </table>
 
@@ -119,17 +125,15 @@
                         <!-- Bill Info -->
                         <div class="row g-3 mb-4">
                             <div class="col-md-4">
-                                <label for="trip_id" class="form-label">Trip</label>
-                                <div class="input-group"> <!-- position-relative for absolute dropdown -->
-                                    <input id="trip_id" type="text" data-bs-target="#tripSearchModal"
-                                        data-bs-toggle="modal" data-bs-dismiss="modal" class="form-control"
-                                        placeholder="Select Trip" autocomplete="off" required />
-
-                                    <!-- Move the dropdown here inside the position-relative container -->
-
-                                </div>
-
-
+                                <label for="trip_id_select" class="form-label">Select Trip (Latest 5)</label>
+                                <select id="trip_id_select" class="form-select" required>
+                                    <option value="" disabled selected>Select a Trip</option>
+                                    @foreach ($latestTrips as $trip)
+                                        <option value="{{ $trip['id'] }}" data-route="{{ $trip['route_id'] }}">
+                                            {{ $trip['display'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
                                 <input type="hidden" name="trip_hidden" id="trip_hidden" />
                                 <span class="error-trip_id text-danger text-small"></span>
                             </div>
@@ -211,6 +215,7 @@
                             <thead>
                                 <tr>
                                     <th>Product</th>
+                                    <th>Grade</th>
                                     <th>Qty</th>
                                     <th>Unit</th>
                                     <th>Unit Price</th>
@@ -315,13 +320,17 @@
                 <div class="modal-body">
                     <!-- Search Filters -->
                     <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label for="trip_date" class="form-label">Trip Date</label>
+                        <div class="col-md-4">
+                            <label for="trip-tag" class="form-label">Trip Tag (Search)</label>
+                            <input type="text" class="form-control" id="trip-tag" placeholder="Type trip tag...">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="trip-date" class="form-label">Trip Date</label>
                             <input type="date" class="form-control" id="trip-date" name="trip-date">
                             <span class="error_trip_date text-danger"></span>
                         </div>
-                        <div class="col-md-6">
-                            <label for="route_name" class="form-label">Route Name</label>
+                        <div class="col-md-4">
+                            <label for="route-name" class="form-label">Route Name</label>
                             <select class="form-select" aria-label="Select Route" id="route-name" name="route-name">
                                 <option selected disabled value="">select route names</option>
                                 @foreach ($data as $route)
@@ -512,7 +521,11 @@
             </div>
         </div>
     </div>
-
+    <script>
+        window.fleetProducts = @json($productList);
+        window.fleetUnits = @json($units);
+        window.fleetGrades = @json($grades);
+    </script>
 
     @vite(['resources/js/fleet/fleet_sale.js'])
     @vite(['resources/js/fleet/update_fleet_payments.js'])

@@ -50,47 +50,9 @@ class StockOutService
 
     private function deductStock(array $data): void
     {
-        foreach ($data['items'] as $item) {
-            // 1. Decrement Stock Summary
-            $summary = StockSummary::where([
-                'product_id'  => $item['product_id'],
-                'location_id' => $item['location_id'],
-                'batch_id'    => $item['batch_code'],
-                'grade'       => $item['grade'],
-            ])->first();
-
-            if ($summary) {
-                $summary->current_qty -= $item['quantity'];
-                $summary->save();
-            }
-
-            // 2. Decrement Location Inventory (Warehouse or Shop)
-            $locationType = $this->getLocationType((int) $item['location_id']);
-
-            if ($locationType === 'warehouse') {
-                $inventory = WarehouseInventory::where([
-                    'warehouse_id' => $item['location_id'],
-                    'batch'        => $item['batch_code'],
-                    'product_id'   => $item['product_id'],
-                ])->first();
-
-                if ($inventory) {
-                    $inventory->qty -= $item['quantity'];
-                    $inventory->save();
-                }
-            } else if ($locationType === 'shop') {
-                $inventory = ShopInventory::where([
-                    'shop_id'    => $item['location_id'],
-                    'batch_id'   => $item['batch_code'],
-                    'product_id' => $item['product_id'],
-                ])->first();
-
-                if ($inventory) {
-                    $inventory->qty -= $item['quantity'];
-                    $inventory->save();
-                }
-            }
-        }
+        // 🔹 In a pure ledger-based system, we do not physically mutate inventory records.
+        // Available stock is calculated dynamically in the application layer.
+        // Thus, we skip direct table mutations here.
     }
 
     private function getLocationType(int $locationId): string

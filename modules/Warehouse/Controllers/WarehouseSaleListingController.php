@@ -39,6 +39,17 @@ class WarehouseSaleListingController extends Controller
         $data        = $this->summary->handle($perPage, $options);
         $productList = $this->products->shareProductList();
 
-        return view('warehouse::warehouse_sale', compact('location', 'data', 'perPage', 'productList'));
+        $warehouseCustomers = \Modules\Warehouse\Models\WarehouseCustomer::select('id', 'name', 'warehouse_id')->get();
+
+        $grades = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
+                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+            }
+        } catch (\Exception $e) {
+            // Database not ready or table doesn't exist
+        }
+
+        return view('warehouse::warehouse_sale', compact('location', 'data', 'perPage', 'productList', 'grades', 'warehouseCustomers'));
     }
 }

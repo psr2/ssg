@@ -9,6 +9,7 @@ use Modules\FleetManagement\Requests\CreateTripRequest;
 use Modules\FleetManagement\Services\FleetTrips\FleetTripService;
 use Modules\Locations\API\Internal\Contracts\LocationsInterface;
 use Modules\FleetManagement\Models\FleetTrip;
+use Modules\Inventory\API\Contracts\ProductInterface;
 
 /***
  * Add proper commenting later
@@ -19,7 +20,8 @@ class FleetTripController extends Controller
 {
     public function __construct(
         protected LocationsInterface $locations,
-        protected  FleetTripService $trip
+        protected FleetTripService   $trip,
+        protected ProductInterface   $products
     ) {}
 
     /**
@@ -31,7 +33,18 @@ class FleetTripController extends Controller
 
         $trips = $this->trip->allTrips(); // fetch paginated trips
 
-        return view('fleet_management::fleet_trip', compact('locations', 'trips'));
+        $productList = $this->products->shareProductList();
+
+        $grades = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
+                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch grades for FleetTrip view: ' . $e->getMessage());
+        }
+
+        return view('fleet_management::fleet_trip', compact('locations', 'trips', 'productList', 'grades'));
     }
 
 
@@ -51,12 +64,21 @@ class FleetTripController extends Controller
     public function createTrip(CreateTripRequest $request)
     {
         Log::debug("received on controller ");
-        $this->trip->createTrip($request->validated());
+        try {
+            $this->trip->createTrip($request->validated());
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Trip created successfully'
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Trip created successfully'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Fleet Trip creation controller exception: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
     }
 
 

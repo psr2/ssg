@@ -25,6 +25,8 @@ class StockOutItem extends Model
         'unit_cost',
         'total_cost',
         'location_id',
+        'grade',
+        'batch_code',
     ];
 
     /*

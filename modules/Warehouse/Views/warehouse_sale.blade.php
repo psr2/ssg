@@ -230,7 +230,7 @@
 
                         <div class="col-md-4">
                             <label class="form-label">Payment Date</label>
-                            <input type="date" class="form-control" id="wh_payment_date">
+                            <input type="date" class="form-control" id="wh_payment_date" value="{{ date('Y-m-d') }}" required>
                             <span class="error-payment_date text-small text-danger"></span>
                         </div>
 
@@ -325,6 +325,9 @@
     </div>
 </div>
 
+
+<div id="grades-data" data-grades="{{ json_encode($grades) }}" class="d-none"></div>
+<div id="wh-customers-data" data-customers="{{ json_encode($warehouseCustomers) }}" class="d-none"></div>
 
 @include('stock_management::Components.Modals.batch_code', [
     'locations' => $location,

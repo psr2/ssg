@@ -38,15 +38,6 @@ class FleetCustomerController extends Controller
             $customers = FleetCustomer::where('route_id', $validated['route_id'])
                 ->pluck('customer_name' ,'id');
 
-            if ($customers->isEmpty()) {
-                Log::warning("No customers found for route_id: {$validated['route_id']}");
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No customers found for the given route.',
-                ], 404);
-            }
-
             return response()->json([
                 'success' => true,
                 'data' => $customers,

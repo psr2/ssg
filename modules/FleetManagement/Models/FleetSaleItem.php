@@ -14,6 +14,7 @@ class FleetSaleItem extends Model
     protected $fillable = [
         'fleet_sale_id',
         'product_name',
+        'grade',
         'quantity',
         'unit',
         'unit_price',

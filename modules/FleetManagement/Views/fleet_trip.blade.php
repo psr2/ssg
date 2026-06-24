@@ -52,7 +52,8 @@
                     <!-- <th>Vehicle</th> -->
                     <th style="background-color: #08b325d3; color: white;">Tag</th>
                     <th style="background-color: #08b325d3; color: white;">Sent</th>
-                    <th style="background-color: #08b325d3; color: white;">Returned</th>
+                    <th style="background-color: #08b325d3; color: white;">Billed</th>
+                    <th style="background-color: #08b325d3; color: white;">Outstanding</th>
                     <th style="background-color: #08b325d3; color: white;">Date</th>
                     <th style="background-color: #08b325d3; color: white;">Action</th>
                 </tr>
@@ -72,12 +73,13 @@
                             @endif
                         </td>
                         <td>
-                            @if ($trip->total_returned > 1000)
-                                {{ number_format($trip->total_returned / 1000, 2) }} tn
+                            @if ($trip->total_billed > 1000)
+                                {{ number_format($trip->total_billed / 1000, 2) }} tn
                             @else
-                                {{ $trip->total_returned }} Kg
+                                {{ $trip->total_billed }} Kg
                             @endif
                         </td>
+                        <td>₹{{ number_format($trip->outstanding_credit, 2) }}</td>
 
                         <td>{{ date('d-m-Y', strtotime($trip->start_date)) }}</td>
                         <td class="justify-center">
@@ -88,7 +90,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="text-center">No trips found</td>
+                        <td colspan="8" class="text-center">No trips found</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -173,8 +175,9 @@
 
 
                             <!-- ========================= -->
-                            <!-- PRODUCTS RETURNED SECTION -->
+                            <!-- PRODUCTS RETURNED SECTION (Commented out) -->
                             <!-- ========================= -->
+                            <!--
                             <div class="col-12 mt-4">
                                 <h6>Products Returned</h6>
                                 <table class="table table-bordered">
@@ -197,6 +200,7 @@
                                     + Add Item
                                 </button>
                             </div>
+                            -->
 
                         </form>
                     </div>
@@ -221,8 +225,9 @@
                 <td>
                     <select class="form-select" data-field="product_id">
                         <option selected disabled>Product</option>
-                        <option value="1">Onion</option>
-                        <option value="2">Potato</option>
+                        @foreach ($productList as $product)
+                            <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                        @endforeach
                     </select>
                     <span class="text-danger error_product_id"></span>
                 </td>
@@ -234,7 +239,16 @@
                 </td>
 
                 <td>
-                    <input type="text" class="form-control" data-field="grade" placeholder="Grade">
+                    <select class="form-select" data-field="grade">
+                        <option selected disabled value="">Grade</option>
+                        @forelse ($grades ?? [] as $grade)
+                            <option value="{{ $grade->code }}">{{ $grade->name }}</option>
+                        @empty
+                            <option value="A">Grade A</option>
+                            <option value="B">Grade B</option>
+                            <option value="C">Grade C</option>
+                        @endforelse
+                    </select>
                     <span class="text-danger error_grade"></span>
                 </td>
 
@@ -339,87 +353,10 @@
                                     </div> -->
 
 
-    <!-- Modal -->
-    
-    <div class="modal fade" id="staticBackdropBatchCode" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header" style="background-color: #0b0355ff;color:white;">
-                    <span class="modal-title" id="staticBackdropLabel" style="font-size:1em;">Search Batch Code</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-
-                <div class="modal-body">
-                    <!-- Search Filters -->
-                    <div id="batchCodeSearchForm" class="row g-3 mb-3">
-                        <div class="col-md-4">
-                            <label for="productName" class="form-label">Product Name(make dyna)</label>
-
-                            <select class="form-select" name="product_listing">
-                                <option value="" disabled selected>Select product</option>
-                                <option value="onionResult: 71 days" selected>Onion</option>
-                                <option value="shallots">Shallots</option>
-                                <option value="potato">Potato</option>
-                                <option value="tomato">Tomato</option>
-
-                            </select>
-                            <span class="error-product text-danger small"></span>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label for="location" class="form-label">Location</label>
-                            <select id="location" class="form-select" name="location">
-                                <option selected disabled>Select location</option>
-                                @foreach ($locations as $loction)
-                                    <option value="{{ $loction['id'] }}">{{ $loction['name'] }}</option>
-                                @endforeach
-
-
-
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="dateFrom" class="form-label">Purchase Month and Year</label>
-                            <input type="month" class="form-control" id="purchase_date" name="dateFrom">
-                        </div>
-
-                        <div class="col-4">
-                            <button type="" class="btn btn-sm btn-primary" id="search_batch_code">Search</button>
-
-                        </div>
-
-
-                    </div>
-
-                    <!-- Search Results Table -->
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-sm table-hover" id="batchCodeResults">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Batch Code</th>
-                                    <th>Product</th>
-                                    <th>Vendor</th>
-                                    <th>Location</th>
-                                    <th>Select</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Results will be dynamically injected here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="confirmBatchBtn" data-bs-target="#stockModal"
-                        data-bs-toggle="modal">Confirm</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    @include('stock_management::Components.Modals.batch_code', [
+        'location' => $locations,
+        'productList' => $productList
+    ])
 
 
 

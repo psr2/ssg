@@ -21,6 +21,7 @@ export default defineConfig({
                 'resources/js/warehouse/warehouse_sale.js',
                 'resources/js/warehouse/warehouse_customer_search.js',
                 'resources/js/warehouse/warehouse_credits.js',
+                'resources/js/warehouse/warehouse_overview.js',
 
                 // Inventory Module
                 'resources/js/inventory/product.js',
@@ -32,6 +33,7 @@ export default defineConfig({
 
                 // Fleet Module
                 'resources/js/fleet/fleet_sale.js',
+                'resources/js/fleet/upload_report.js',
                 'resources/js/fleet/loadProductsAndUnits.js',
                 'resources/js/fleet/customer_search.js',
                 'resources/js/fleet/update_fleet_payments.js',
@@ -44,6 +46,7 @@ export default defineConfig({
                 'resources/js/stock-management/stock_transfer.js',
                 'resources/js/stock-management/batch-id.js',
                 'resources/js/stock-management/stock_adjustment.js',
+                'resources/js/stock-management/stock_segregation.js',
 
                 // Expenses Module
                 'resources/js/expenses/expense.js',

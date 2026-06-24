@@ -22,7 +22,9 @@ class FleetTripRepository
             'fleet_routes.name as route_name',
             'fleet_vehicles.registration_number as vehicle_number',
             DB::raw('COALESCE(SUM(fleet_trip_stocks.qty_sent), 0) as total_sent'),
-            DB::raw('COALESCE(SUM(fleet_trip_stocks.qty_returned), 0) as total_returned')
+            DB::raw('COALESCE(SUM(fleet_trip_stocks.qty_returned), 0) as total_returned'),
+            DB::raw('(SELECT COALESCE(SUM(fsi.quantity), 0) FROM fleet_sales fs JOIN fleet_sale_items fsi ON fsi.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id) as total_billed'),
+            DB::raw('((SELECT COALESCE(SUM(fs.total_amount), 0) FROM fleet_sales fs WHERE fs.fleet_trip_id = fleet_trips.id) - (SELECT COALESCE(SUM(fsp.amount), 0) FROM fleet_sales fs JOIN fleet_sale_payments fsp ON fsp.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id)) as outstanding_credit')
         )
             ->leftJoin('fleet_routes', 'fleet_trips.route_id', '=', 'fleet_routes.id')
             ->leftJoin('fleet_vehicles', 'fleet_trips.vehicle_id', '=', 'fleet_vehicles.id')
@@ -82,7 +84,7 @@ class FleetTripRepository
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Fleet Trip creation failed: ' . $e->getMessage(), ['data' => $data]);
-            return false;
+            throw $e;
         }
     }
 
@@ -139,14 +141,48 @@ class FleetTripRepository
 
     private function updateStockSummary(array $item): void
     {
-        if (!isset($item['location_id'], $item['batch'], $item['quantity'])) {
-            return;
+        if (!isset($item['location_id'], $item['batch'], $item['quantity'], $item['product_id'])) {
+            throw new \Exception("Missing location, product, batch or quantity for stock reduction.");
         }
-        //use the grade as well here
-        StockSummary::where('location_id', $item['location_id'])
-            ->where('batch_id', $item['batch'])
-            ->lockForUpdate()
-            ->decrement('current_qty', $item['quantity']);
+
+        $quantity = (int) $item['quantity'];
+        if ($quantity <= 0) {
+            throw new \Exception("Requested quantity for product ID {$item['product_id']} must be greater than zero.");
+        }
+
+        $summary = null;
+        if (isset($item['grade']) && $item['grade'] !== '') {
+            $summary = StockSummary::where('location_id', $item['location_id'])
+                ->where('batch_id', $item['batch'])
+                ->where('product_id', $item['product_id'])
+                ->where('grade', $item['grade'])
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (!$summary) {
+            // Fallback ignoring grade to match parent batch summary record
+            $summary = StockSummary::where('location_id', $item['location_id'])
+                ->where('batch_id', $item['batch'])
+                ->where('product_id', $item['product_id'])
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (!$summary) {
+            $msg = "No stock summary found for product ID {$item['product_id']}, batch {$item['batch']}";
+            if (isset($item['grade']) && $item['grade'] !== '') {
+                $msg .= ", grade {$item['grade']}";
+            }
+            $msg .= " at location ID {$item['location_id']}.";
+            throw new \Exception($msg);
+        }
+
+        if ($summary->current_qty < $quantity) {
+            throw new \Exception("Insufficient stock in summary. Available: {$summary->current_qty}, Requested: {$quantity}.");
+        }
+
+        $summary->decrement('current_qty', $quantity);
     }
 
     /**
@@ -166,18 +202,28 @@ class FleetTripRepository
                     'batch_id'    => $batch,
                     'grade'       => $grade,
                     'product_id'  => $item['product_id'],
-                ])->first();
+                ])
+                ->lockForUpdate()
+                ->first();
 
+                if (!$inventory) {
+                    // Fallback ignoring grade
+                    $inventory = ShopInventory::where([
+                        'shop_id'     => $location->id,
+                        'batch_id'    => $batch,
+                        'product_id'  => $item['product_id'],
+                    ])
+                    ->lockForUpdate()
+                    ->first();
+                }
 
-                /***
-                 * Historical Note 
-                 * 
-                 * Assigning stock should decrease available quantity.
-                 * Previous implementation incorrectly used += instead of -=.
-                 * 
-                 * Fixed on 19/11/2025 - replaced with -=
-                 */
+                if (!$inventory) {
+                    throw new \Exception("No shop inventory record found for product ID {$item['product_id']}, batch {$batch} at location '{$location->name}'.");
+                }
 
+                if ($inventory->qty < $quantity) {
+                    throw new \Exception("Insufficient shop inventory stock. Available: {$inventory->qty}, Requested: {$quantity}.");
+                }
 
                 $inventory->qty -= $quantity;
                 $inventory->stock_transfer_id = $trip->id;
@@ -190,14 +236,28 @@ class FleetTripRepository
                     'batch'        => $batch,
                     'grade'       => $grade,
                     'product_id'  => $item['product_id'],
-                ])->first();
+                ])
+                ->lockForUpdate()
+                ->first();
 
-                /***
-                 *  * Historical Note 
-                 * 
-                 * This was originally += which increased the stock quantiy when stock assinging was done
-                 * susepected the above action was not correct
-                 */
+                if (!$inventory) {
+                    // Fallback ignoring grade
+                    $inventory = WarehouseInventory::where([
+                        'warehouse_id' => $location->id,
+                        'batch'        => $batch,
+                        'product_id'  => $item['product_id'],
+                    ])
+                    ->lockForUpdate()
+                    ->first();
+                }
+
+                if (!$inventory) {
+                    throw new \Exception("No warehouse inventory record found for product ID {$item['product_id']}, batch {$batch} at location '{$location->name}'.");
+                }
+
+                if ($inventory->qty < $quantity) {
+                    throw new \Exception("Insufficient warehouse inventory stock. Available: {$inventory->qty}, Requested: {$quantity}.");
+                }
 
                 $inventory->qty -= $quantity;
                 $inventory->save();
