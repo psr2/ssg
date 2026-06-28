@@ -130,6 +130,7 @@ class FleetTripRepository
             'location_id'   => $item['location_id'],
             'batch'         => $batch,
             'grade'         => $item['grade'] ?? null,
+            'unit'          => $item['unit'] ?? null,
         ]);
 
         // Only update stock/inventory for sent items

@@ -34,17 +34,18 @@ class FleetTripController extends Controller
         $trips = $this->trip->allTrips(); // fetch paginated trips
 
         $productList = $this->products->shareProductList();
+        $units = \Modules\Inventory\Models\UnitOfMeasurement::all();
 
         $grades = [];
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
-                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+                $grades = \Modules\Inventory\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
             }
         } catch (\Exception $e) {
             Log::error('Failed to fetch grades for FleetTrip view: ' . $e->getMessage());
         }
 
-        return view('fleet_management::fleet_trip', compact('locations', 'trips', 'productList', 'grades'));
+        return view('fleet_management::fleet_trip', compact('locations', 'trips', 'productList', 'grades', 'units'));
     }
 
 
@@ -114,6 +115,7 @@ class FleetTripController extends Controller
                 'batch'       => $stock->batch,
                 'grade'       => $stock->grade,
                 'quantity'    => $stock->qty_sent,
+                'unit'        => $stock->unit,
                 'location_id' => $stock->location_id,
                 'location_name' => $stock->location->name ?? '',
             ];

@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 use Modules\Inventory\Database\Seeders\UnitsTableSeeder;
 use Modules\Inventory\Database\Seeders\ProductsTableSeeder;
 use Modules\Locations\Database\Seeders\LocationsTableSeeder;
-use Modules\Settings\Database\Seeders\ProductGradesTableSeeder;
+use Modules\Inventory\Database\Seeders\ProductGradesTableSeeder;
 
 class DatabaseSeeder extends Seeder
 {

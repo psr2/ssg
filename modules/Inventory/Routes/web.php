@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Inventory\Controllers\Products\ProductCatalogController;
 use Modules\Inventory\Controllers\UnitController;
+use Modules\Inventory\Controllers\ProductGradeController;
 
 /**
  * Product Catalog routes
@@ -30,3 +31,10 @@ Route::prefix('api/units')->group(function () {
     Route::put('/{id}',    [UnitController::class, 'update']);
     Route::delete('/{id}', [UnitController::class, 'destroy']);
 });
+
+/**
+ * Product Grades routes
+ */
+Route::get('/grades',           [ProductGradeController::class, 'index']);
+Route::post('/grades',          [ProductGradeController::class, 'store']);
+Route::delete('/grades/{id}',   [ProductGradeController::class, 'destroy']);

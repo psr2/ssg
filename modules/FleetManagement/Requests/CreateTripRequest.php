@@ -31,6 +31,7 @@ class CreateTripRequest extends FormRequest
             'sent.*.product_id'  => 'required|exists:products,id',
             'sent.*.batch'       => 'required|string|max:255',
             'sent.*.grade'       => 'required|string|max:255',
+            'sent.*.unit'        => 'required|string|max:255',
             'sent.*.quantity'    => 'required|numeric|min:0.01',
             'sent.*.location_id' => 'required|exists:locations,id',
 
@@ -69,6 +70,7 @@ class CreateTripRequest extends FormRequest
             'sent.*.location_id.required'   => 'Location is required for each sent item.',
             'sent.*.batch.required'         => 'Batch is required for each sent item.',
             'sent.*.grade.required'         => 'Grade is required for each sent item.',
+            'sent.*.unit.required'          => 'Unit is required for each sent item.',
 
 
 

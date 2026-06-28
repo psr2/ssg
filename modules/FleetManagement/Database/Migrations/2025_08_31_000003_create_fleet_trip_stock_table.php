@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('location_id')->nullable(); // optional, if you track where stock is sent
             $table->string('batch')->nullable();
             $table->string('grade')->nullable();
+            $table->string('unit')->nullable();
             $table->decimal('qty_sent', 10, 2)->default(0);
             $table->decimal('qty_returned', 10, 2)->default(0);
             $table->timestamps();

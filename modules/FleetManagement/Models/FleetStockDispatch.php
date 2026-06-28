@@ -40,6 +40,7 @@ class FleetStockDispatch extends Model
         'location_id',
         'batch',
         'grade',
+        'unit',
         'qty_sent',
         'qty_returned',
     ];

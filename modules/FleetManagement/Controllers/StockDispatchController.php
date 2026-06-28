@@ -25,6 +25,7 @@ class StockDispatchController extends Controller
             'qtySent'      => 'required|numeric|min:0.01',
             'location'     => 'required|exists:locations,id',
             'batch'        => 'string',
+            'unit'         => 'nullable|string|max:255',
             'qtyReturned'  => 'numeric|min:0',
         ]);
 

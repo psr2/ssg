@@ -94,7 +94,7 @@ class FleetSaleController extends Controller
         $grades = [];
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
-                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+                $grades = \Modules\Inventory\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
             }
         } catch (\Exception $e) {
             Log::error('Failed to fetch grades for FleetSale: ' . $e->getMessage());

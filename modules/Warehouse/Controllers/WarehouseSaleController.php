@@ -59,7 +59,6 @@ class WarehouseSaleController extends Controller
      */
     public function store(WarehouseSaleRequest $validatedPayload)
     {
-        Log::debug('Warehouse sale store request received');
 
         try {
             $this->sale->process($validatedPayload->validated());

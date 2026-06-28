@@ -32,7 +32,7 @@ class StockViewManagementResourceController extends Controller
         $grades = [];
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
-                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+                $grades = \Modules\Inventory\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
             }
         } catch (\Exception $e) {
             // Database not ready or table doesn't exist
@@ -56,7 +56,7 @@ class StockViewManagementResourceController extends Controller
         $grades = [];
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
-                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+                $grades = \Modules\Inventory\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
             }
         } catch (\Exception $e) {
             // Database not ready or table doesn't exist
@@ -89,7 +89,7 @@ class StockViewManagementResourceController extends Controller
         $grades = [];
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('product_grades')) {
-                $grades = \Modules\Settings\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
+                $grades = \Modules\Inventory\Models\ProductGrade::where('is_active', true)->orderBy('name', 'asc')->get();
             }
         } catch (\Exception $e) {
             // Database not ready or table doesn't exist

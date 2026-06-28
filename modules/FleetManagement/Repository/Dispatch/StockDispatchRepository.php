@@ -33,6 +33,7 @@ class StockDispatchRepository
             'qty_sent'      => $data['qtySent'],
             'location_id'   => $data['location'],
             'batch'         => $data['batch'],
+            'unit'          => $data['unit'] ?? null,
             'qty_returned'  => $data['qtyReturned'] ?? SELF::DEFAULT_RETURN_QUANTITY,
         ]);
 

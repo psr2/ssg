@@ -160,6 +160,7 @@
                                             <th>Batch</th>
                                             <th>Grade</th>
                                             <th>Qty</th>
+                                            <th>Unit</th>
                                             <th>Location</th>
                                             <th>Action</th>
                                         </tr>
@@ -255,6 +256,16 @@
                 <td>
                     <input type="number" class="form-control" data-field="quantity" placeholder="Qty">
                     <span class="text-danger error_quantity"></span>
+                </td>
+
+                <td>
+                    <select class="form-select" data-field="unit">
+                        <option selected disabled value="">Unit</option>
+                        @foreach ($units as $unit)
+                            <option value="{{ $unit->abbreviation }}">{{ $unit->abbreviation }}</option>
+                        @endforeach
+                    </select>
+                    <span class="text-danger error_unit"></span>
                 </td>
 
                 <td>

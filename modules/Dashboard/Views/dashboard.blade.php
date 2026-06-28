@@ -57,7 +57,7 @@
                     </a>
                 </li>
 
-                <li class="menu-item {{ request()->is('product/catalog') || request()->is('units') || request()->is('locations') ? 'active' : '' }}">
+                <li class="menu-item {{ request()->is('product/catalog') || request()->is('units') || request()->is('locations') || request()->is('grades') ? 'active' : '' }}">
                     <div class="menu-title">
                         <i class="bi bi-box-seam"></i>&nbsp; Units & Locations
                         <i class="bi bi-caret-down"></i>
@@ -65,6 +65,7 @@
                     <ul class="submenu">
                         <li><a href="/units"><i class="bi bi-rulers"></i> Units</a></li>
                         <li><a href="/locations"><i class="bi bi-geo-alt"></i> Locations</a></li>
+                        <li><a href="/grades"><i class="bi bi-award"></i> Grades</a></li>
                         <li><a href="/product/catalog"><i class="bi bi-box-seam"></i> Product Catalog</a></li>
                         
                     </ul>
@@ -150,11 +151,6 @@
             <!-- Bottom Menu Items -->
             <div class="mt-auto bg-grey">
                 <ul class="sidebar-menu p-0 m-0">
-                    <li class="menu-item {{ request()->is('settings*') ? 'active' : '' }}" style="font-size: 0.72em;">
-                        <a href="/settings/grades" class="text-white text-decoration-none d-flex align-items-center px-3 py-2">
-                            <i class="bi bi-gear me-2"></i> Settings
-                        </a>
-                    </li>
                     <li class="menu-item" style="font-size: 0.72em;">
                         <a href="" class="text-white text-decoration-none d-flex align-items-center px-3 py-2">
                             <i class="bi bi-box-arrow-right me-2"></i> Logout
@@ -183,6 +179,8 @@
             @yield('units')
 
             @yield('locations')
+
+            @yield('grades')
 
 
             @yield('stock_transfer')
