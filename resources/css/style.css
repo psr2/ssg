@@ -325,3 +325,366 @@ form span.text-danger {
     display: none !important;
 }
 
+/* ==================================
+   Premium Batch Selection Modal
+===================================== */
+.premium-modal-content {
+    border-radius: 16px !important;
+    border: none !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+    overflow: hidden;
+}
+
+.premium-modal-header {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%) !important;
+    border-bottom: none !important;
+    padding: 1.2rem 1.5rem !important;
+}
+
+.premium-modal-title {
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.premium-modal-body {
+    padding: 1.5rem !important;
+    background-color: #fcfcfd;
+}
+
+.premium-card-filter {
+    background: white;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.premium-form-label {
+    font-size: 0.78rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600 !important;
+    color: #64748b;
+    margin-bottom: 0.4rem;
+}
+
+.premium-form-control,
+.premium-form-select {
+    border-radius: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.85rem !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.premium-form-control:focus,
+.premium-form-select:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+    background-color: white !important;
+}
+
+.quick-filter-wrapper {
+    position: relative;
+}
+
+.quick-filter-input {
+    padding-left: 2.25rem !important;
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+}
+
+.quick-filter-input:focus {
+    background-color: white !important;
+}
+
+.quick-filter-icon {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+/* Table Design */
+.premium-table {
+    border-collapse: separate !important;
+    border-spacing: 0 6px !important;
+    background-color: transparent !important;
+}
+
+.premium-table thead th {
+    background-color: #f8fafc !important;
+    color: #475569 !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e2e8f0 !important;
+    padding: 0.75rem 1rem !important;
+}
+
+.premium-table tbody tr {
+    background-color: white !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.premium-table tbody tr:hover {
+    background-color: #f8fafc !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.premium-table tbody td {
+    padding: 0.85rem 1rem !important;
+    vertical-align: middle !important;
+    border-top: 1px solid #f1f5f9 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.premium-table tbody tr td:first-child {
+    border-left: 1px solid #f1f5f9 !important;
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.premium-table tbody tr td:last-child {
+    border-right: 1px solid #f1f5f9 !important;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* Badges */
+.badge-premium-grade {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25em 0.6em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 30px;
+    text-transform: capitalize;
+}
+
+.badge-grade-a {
+    background-color: #ecfdf5 !important;
+    color: #059669 !important;
+    border: 1px solid #a7f3d0 !important;
+}
+
+.badge-grade-b {
+    background-color: #fffbeb !important;
+    color: #d97706 !important;
+    border: 1px solid #fde68a !important;
+}
+
+.badge-grade-c {
+    background-color: #ffedd5 !important;
+    color: #ea580c !important;
+    border: 1px solid #fed7aa !important;
+}
+
+.badge-grade-unsorted {
+    background-color: #eff6ff !important;
+    color: #2563eb !important;
+    border: 1px solid #bfdbfe !important;
+}
+
+.badge-grade-waste {
+    background-color: #fef2f2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fecaca !important;
+}
+
+.badge-premium-qty {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.3em 0.7em;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 8px;
+}
+
+.qty-high {
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+}
+
+.qty-medium {
+    background-color: #fffbeb !important;
+    color: #854d0e !important;
+}
+
+.qty-low {
+    background-color: #fef2f2 !important;
+    color: #991b1b !important;
+}
+
+.code-block-premium {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    color: #1e293b;
+    background-color: #f1f5f9;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    border: 1px solid #e2e8f0;
+}
+
+/* Select Batch Button */
+.btn-select-batch-premium {
+    background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 0.4rem 0.8rem !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+}
+
+.btn-select-batch-premium:hover {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+}
+
+.btn-select-batch-premium:active {
+    transform: translateY(0);
+}
+
+/* Empty State SVG Container */
+.premium-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1.5rem !important;
+    text-align: center;
+    color: #64748b;
+}
+
+.premium-empty-state svg {
+    margin-bottom: 1rem;
+    width: 64px;
+    height: 64px;
+    color: #cbd5e1;
+}
+
+.premium-empty-state-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.25rem;
+}
+
+.premium-empty-state-text {
+    font-size: 0.82rem;
+    color: #94a3b8;
+}
+
+/* Card List Results */
+.batch-list-results-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.batch-item-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.95rem 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.batch-item-card:hover {
+    border-color: #6366f1;
+    background-color: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.08);
+}
+
+.batch-item-card:active {
+    transform: translateY(0);
+}
+
+.batch-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.batch-item-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.batch-item-product {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.98rem;
+}
+
+.batch-item-code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.78rem;
+    color: #4f46e5;
+    background: #eff6ff;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    border: 1px solid #bfdbfe;
+    font-weight: 600;
+}
+
+.batch-item-subtitle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.82rem;
+}
+
+.batch-item-location {
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.batch-item-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.batch-item-qty-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+
+

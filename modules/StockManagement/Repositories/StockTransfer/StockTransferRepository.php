@@ -32,6 +32,8 @@ use Exception;
 
 class StockTransferRepository
 {
+    public function __construct(protected \Modules\StockLedger\Services\StockLedgerService $ledgerService) {}
+
     public function handle(array $payload): StockTransfer
     {
         Log::debug("reached repository");
@@ -57,22 +59,32 @@ class StockTransferRepository
                     'unit'              => $payload['t_unit'],
                 ]);
 
-                // 3. Update inventory based on locations
-                // from_location: decrement stock
-                $this->updateInventory(
-                    $payload['t_fromLocation'],
-                    $item,
-                    'decrement',
-                    $transfer->id
-                );
+                // 3. Record entries in the StockLedger
+                $this->ledgerService->recordEntry([
+                    'transaction_type' => 'TRANSFER_OUT',
+                    'location_id'      => $payload['t_fromLocation'],
+                    'product_id'       => $item->product_id,
+                    'batch_code'       => $item->batch_code,
+                    'grade'            => $item->grade,
+                    'quantity'         => -$item->quantity,
+                    'unit'             => $item->unit,
+                    'reference_id'     => $item->id,
+                    'reference_type'   => get_class($item),
+                    'remarks'          => $transfer->remarks ?? 'Stock transferred out',
+                ]);
 
-                // to_location: increment stock
-                $this->updateInventory(
-                    $payload['t_toLocation'],
-                    $item,
-                    'increment',
-                    $transfer->id
-                );
+                $this->ledgerService->recordEntry([
+                    'transaction_type' => 'TRANSFER_IN',
+                    'location_id'      => $payload['t_toLocation'],
+                    'product_id'       => $item->product_id,
+                    'batch_code'       => $item->batch_code,
+                    'grade'            => $item->grade,
+                    'quantity'         => $item->quantity,
+                    'unit'             => $item->unit,
+                    'reference_id'     => $item->id,
+                    'reference_type'   => get_class($item),
+                    'remarks'          => $transfer->remarks ?? 'Stock transferred in',
+                ]);
 
                 return $transfer;
             } catch (Exception $e) {
@@ -83,68 +95,4 @@ class StockTransferRepository
         });
     }
 
-    /**
-     * Todo - replace the firstornew with an upsert to reduce cpu load
-     */
-
-    protected function updateInventory(
-        string|int $locationId,
-        StockTransferItem $item,
-        string $operation,
-        $stockTransferId
-    ) {
-        Log::debug("items are");
-        Log::debug($item);
-        try {
-            // Determine location type (SHOP / WAREHOUSE)
-            $locationType = $this->getLocationType($locationId);
-
-
-            // Identify location type using enum 
-            if ($locationType === LocationType::SHOP->value) {
-
-                $inventory = ShopInventory::firstOrNew([
-                    'shop_id'    => $locationId,
-                    'batch_id' => $item->batch_code,
-                    'grade' => $item->grade,
-                    'product_id' => $item->product_id,
-                    'stock_transfer_id' => $stockTransferId
-                ]);
-
-                $inventory->qty = $operation === 'increment'
-                    ? ($inventory->qty + $item->quantity)
-                    : ($inventory->qty - $item->quantity);
-
-                if ($inventory->save()) {
-                    Log::debug("shop saved");
-                }
-            }
-
-            if ($locationType === LocationType::WAREHOUSE->value) {
-                $inventory = WarehouseInventory::firstOrNew([
-                    'warehouse_id' => $locationId,
-                    'batch'   => $item->batch_code,
-                    'grade' => $item->grade,
-                    'product_id' => $item->product_id,
-                ]);
-
-                $inventory->qty = $operation === 'increment'
-                    ? ($inventory->qty + $item->quantity)
-                    : ($inventory->qty - $item->quantity);
-
-                if ($inventory->save()) {
-                    Log::debug("warehouse saved");
-                }
-            }
-        } catch (Exception $e) {
-            Log::debug("Error during inventory update at location {$locationId}: " . $e->getMessage());
-            // Optionally, throw a custom exception or rethrow the exception
-            throw new \Exception("Inventory update failed. Please try again later.");
-        }
-    }
-
-    private function getLocationType($id): string
-    {
-        return  strtolower(LocationModel::where('id', $id)->pluck('type')->first());
-    }
 }

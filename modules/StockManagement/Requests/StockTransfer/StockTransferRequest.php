@@ -50,7 +50,7 @@ class StockTransferRequest extends FormRequest
             // For single product (current UI)
             't_product_name'   => 'required_without:products|string|max:255',
             't_batch_code'     => 'required_without:products|string|max:100',
-            't_grade'          => 'required_without:products|in:A,B,C',
+            't_grade'          => 'required_without:products|string|max:100',
             't_quantity'       => 'required_without:products|numeric|min:1',
             't_unit'           => 'required_without:products|string|max:50',
             't_textarea'       => 'nullable|string|max:1000',
@@ -83,5 +83,45 @@ class StockTransferRequest extends FormRequest
             't_quantity.required_without'     => 'Quantity is required.',
             't_unit.required_without'         => 'Unit is required.',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if (!$validator->errors()->any()) {
+                $this->validateStockAvailability($validator);
+            }
+        });
+    }
+
+    protected function validateStockAvailability($validator): void
+    {
+        $fromLocation = $this->input('t_fromLocation');
+        $productId = $this->input('t_product_name');
+        $batchCode = $this->input('t_batch_code');
+        $grade = $this->input('t_grade');
+        $requestedQty = floatval($this->input('t_quantity', 0));
+
+        if ($fromLocation && $productId && $batchCode && $grade) {
+            $segregationService = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+            
+            try {
+                $availableQty = $segregationService->getAvailableStock(
+                    (int) $fromLocation,
+                    (int) $productId,
+                    $batchCode,
+                    $grade
+                );
+            } catch (\Exception $e) {
+                $availableQty = 0.00;
+            }
+
+            if ($requestedQty > $availableQty) {
+                $validator->errors()->add(
+                    't_quantity',
+                    "Requested quantity ({$requestedQty}) exceeds available stock ({$availableQty}) for batch {$batchCode} (Grade: {$grade}) at the source location."
+                );
+            }
+        }
     }
 }

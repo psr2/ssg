@@ -72,17 +72,138 @@ class StockAdjustmentService
             $item = StockPurchaseItem::findOrFail($payload['id']);
             $oldLocationId = $item->location_id;
 
-            // 1. Create adjustment log
+            // 1. Create adjustment log record (for audit/tracking)
             $adjustment = $this->createStockAdjustmentEntry($item, $payload);
 
-            // 2. Update stock purchase item if relevant
-            $item = $this->updateStockPurchaseItem($item, $payload);
+            // 2. Record dynamic entries to the StockLedger
+            $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
 
-            // 3. Update stock summary
-            $this->updateStockSummary($item, $payload, $oldLocationId);
+            $currentQty = $ledgerService->getAvailableStock($oldLocationId, $item->product, $item->batch, $item->grade);
+            $currentUnit = $ledgerService->getLatestUnit($oldLocationId, $item->product, $item->batch, $item->grade);
+            $currentLocationId = $ledgerService->getLatestLocationId($oldLocationId, $item->product, $item->batch, $item->grade);
 
-            // 4. Update inventory by location type
-            $this->updateInventoryByLocation($item, $payload, $oldLocationId);
+            $newQty = isset($payload['quantity']) ? (float)$payload['quantity'] : $currentQty;
+            $newUnit = $payload['unit'] ?? $currentUnit;
+            $newLocationId = isset($payload['new_location_id']) ? (int)$payload['new_location_id'] : $currentLocationId;
+
+            $qtyChanged = $newQty != $currentQty;
+            $unitChanged = $newUnit != $currentUnit;
+            $locationChanged = $newLocationId != $currentLocationId;
+
+            if ($unitChanged || $locationChanged) {
+                // Deduct entire current quantity from old unit/location
+                if ($currentQty > 0) {
+                    $ledgerService->recordEntry([
+                        'transaction_type' => 'ADJUSTMENT',
+                        'location_id'      => $currentLocationId,
+                        'product_id'       => $item->product,
+                        'batch_code'       => $item->batch,
+                        'grade'            => $item->grade,
+                        'quantity'         => -$currentQty,
+                        'unit'             => $currentUnit,
+                        'unit_cost'        => $item->unit_cost ?? 0.00,
+                        'reference_id'     => $adjustment->id,
+                        'reference_type'   => get_class($adjustment),
+                        'remarks'          => $payload['remarks'] ?? 'Unit/Location adjustment deduction',
+                    ]);
+                }
+
+                // Add new quantity to new unit/location
+                if ($newQty > 0) {
+                    $ledgerService->recordEntry([
+                        'transaction_type' => 'ADJUSTMENT',
+                        'location_id'      => $newLocationId,
+                        'product_id'       => $item->product,
+                        'batch_code'       => $item->batch,
+                        'grade'            => $item->grade,
+                        'quantity'         => $newQty,
+                        'unit'             => $newUnit,
+                        'unit_cost'        => $item->unit_cost ?? 0.00,
+                        'reference_id'     => $adjustment->id,
+                        'reference_type'   => get_class($adjustment),
+                        'remarks'          => $payload['remarks'] ?? 'Unit/Location adjustment addition',
+                    ]);
+                }
+            } else if ($qtyChanged) {
+                // Delta quantity correction
+                $delta = $newQty - $currentQty;
+                if ($delta != 0) {
+                    $ledgerService->recordEntry([
+                        'transaction_type' => 'ADJUSTMENT',
+                        'location_id'      => $currentLocationId,
+                        'product_id'       => $item->product,
+                        'batch_code'       => $item->batch,
+                        'grade'            => $item->grade,
+                        'quantity'         => $delta,
+                        'unit'             => $currentUnit,
+                        'unit_cost'        => $item->unit_cost ?? 0.00,
+                        'reference_id'     => $adjustment->id,
+                        'reference_type'   => get_class($adjustment),
+                        'remarks'          => $payload['remarks'] ?? 'Quantity correction',
+                    ]);
+                }
+            }
+
+            return $adjustment;
+        });
+    }
+
+    /**
+     * Void a stock purchase item.
+     * Writes a contra-entry to void all available quantity.
+     */
+    public function void(int $id, string $remarks)
+    {
+        return DB::transaction(function () use ($id, $remarks) {
+            $item = StockPurchaseItem::findOrFail($id);
+            $oldLocationId = $item->location_id;
+
+            $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
+
+            // Check if there are active movements
+            if ($ledgerService->hasMovements($oldLocationId, $item->product, $item->batch, $item->grade)) {
+                throw new \Exception("Active stock movements have already occurred for this batch. Human error corrections are no longer permitted.");
+            }
+
+            // Get current available stock details
+            $currentQty = $ledgerService->getAvailableStock($oldLocationId, $item->product, $item->batch, $item->grade);
+            $currentUnit = $ledgerService->getLatestUnit($oldLocationId, $item->product, $item->batch, $item->grade);
+            $currentLocationId = $ledgerService->getLatestLocationId($oldLocationId, $item->product, $item->batch, $item->grade);
+
+            if ($currentQty <= 0) {
+                throw new \Exception("This stock item is already at zero quantity or voided.");
+            }
+
+            // 1. Create a StockAdjustment log record (audit) with type 'OTHER'
+            $oldUnitId = \Modules\Inventory\Models\UnitOfMeasurement::where('abbreviation', $currentUnit)->orWhere('name', $currentUnit)->first()?->id;
+
+            $adjustment = StockAdjustment::create([
+                'stock_purchase_item_id' => $item->id,
+                'old_quantity'           => $currentQty,
+                'new_quantity'           => 0.00,
+                'old_unit_id'            => $oldUnitId,
+                'new_unit_id'            => $oldUnitId,
+                'old_location_id'        => $currentLocationId,
+                'new_location_id'        => $currentLocationId,
+                'adjustment_type'        => 'OTHER',
+                'remarks'                => $remarks,
+                'created_by'             => auth()->id(),
+            ]);
+
+            // 2. Record VOID contra-entry to the StockLedger
+            $ledgerService->recordEntry([
+                'transaction_type' => 'VOID',
+                'location_id'      => $currentLocationId,
+                'product_id'       => $item->product,
+                'batch_code'       => $item->batch,
+                'grade'            => $item->grade,
+                'quantity'         => -$currentQty,
+                'unit'             => $currentUnit,
+                'unit_cost'        => $item->unit_cost ?? 0.00,
+                'reference_id'     => $adjustment->id,
+                'reference_type'   => get_class($adjustment),
+                'remarks'          => $remarks,
+            ]);
 
             return $adjustment;
         });

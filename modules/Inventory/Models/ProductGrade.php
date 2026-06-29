@@ -21,4 +21,9 @@ class ProductGrade extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    protected static function newFactory()
+    {
+        return \Modules\Inventory\Database\Factories\ProductGradeFactory::new();
+    }
 }

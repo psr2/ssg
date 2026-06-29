@@ -10,6 +10,7 @@ return [
     Modules\Inventory\BootstrapInventoryProvider::class,
     Modules\Locations\BootstrapLocationManagementProvider::class,
     Modules\StockManagement\BootstrapStockManagementProvider::class,
+    Modules\StockLedger\BootstrapStockLedgerProvider::class,
     Modules\ShopManagement\BootstrapShopManagementProvider::class,
     Modules\Warehouse\BootstrapWarehouseManagementProvider::class,
     Modules\Expenses\BootstrapExpenseServiceProvider::class

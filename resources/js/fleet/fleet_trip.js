@@ -57,7 +57,7 @@ document.addEventListener('submit', function (e) {
             dateFrom:        form.dateFrom.value,
         };
 
-        fetch("/search-batch-code", {
+        fetch("/fleet/search-batch-code", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

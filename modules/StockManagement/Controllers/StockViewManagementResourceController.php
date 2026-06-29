@@ -52,6 +52,7 @@ class StockViewManagementResourceController extends Controller
     public function stockTransfer(): View
     {
         $productList=$this->listOfProducts();
+        $units = UnitOfMeasurement::all();
 
         $grades = [];
         try {
@@ -62,7 +63,7 @@ class StockViewManagementResourceController extends Controller
             // Database not ready or table doesn't exist
         }
 
-        return view('stock_management::Components.stock_transfer', compact('productList', 'grades'));
+        return view('stock_management::Components.stock_transfer', compact('productList', 'grades', 'units'));
     }
 
     public function stockTransit(): View

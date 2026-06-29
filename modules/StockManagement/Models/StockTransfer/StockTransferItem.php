@@ -39,6 +39,6 @@ class StockTransferItem extends Model
 
     public function unit()
     {
-        return $this->belongsTo(Unit::class, 'unit', 'code');
+        return $this->belongsTo(Unit::class, 'unit', 'abbreviation');
     }
 }

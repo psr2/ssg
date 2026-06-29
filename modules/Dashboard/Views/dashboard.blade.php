@@ -65,7 +65,7 @@
                     <ul class="submenu">
                         <li><a href="/units"><i class="bi bi-rulers"></i> Units</a></li>
                         <li><a href="/locations"><i class="bi bi-geo-alt"></i> Locations</a></li>
-                        <li><a href="/grades"><i class="bi bi-award"></i> Grades</a></li>
+                        <li><a href="/grades"><i class="bi bi-award"></i>Product Grades</a></li>
                         <li><a href="/product/catalog"><i class="bi bi-box-seam"></i> Product Catalog</a></li>
                         
                     </ul>

@@ -57,9 +57,11 @@
                 <label class="form-label">Product</label>
                 <select class="form-select" id="t_product_name">
                     <option value="" disabled selected>-- Select --</option>
-                    <option value="1">Onion</option>
-                    <option>B</option>
-                    <option>C</option>
+                    @if(isset($productList))
+                        @foreach ($productList as $product)
+                            <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                        @endforeach
+                    @endif
                 </select>
                 <span id="t_product_name_error" class="text-danger small"></span>
             </div>
@@ -89,7 +91,14 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label">Unit</label>
-                <input type="text" class="form-control" placeholder="Kg, Box..." id="t_unit">
+                <select class="form-select" id="t_unit">
+                    <option value="" disabled selected>-- Select --</option>
+                    @if(isset($units))
+                        @foreach ($units as $unit)
+                            <option value="{{ $unit->abbreviation }}">{{ $unit->name }} ({{ $unit->abbreviation }})</option>
+                        @endforeach
+                    @endif
+                </select>
                 <span id="t_unit_error" class="text-danger small"></span>
             </div>
             <div class="col-md-12">

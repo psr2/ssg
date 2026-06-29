@@ -1,73 +1,81 @@
 <!-- Modal -->
 <div class="modal fade" id="staticBackdropBatchCode" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header" style="background-color: #0b0355ff;color:white;">
-        <span class="modal-title" id="staticBackdropLabel" style="font-size:1em;">Search Batch Code</span>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content premium-modal-content">
+      <div class="modal-header premium-modal-header text-white">
+        <span class="modal-title premium-modal-title" id="staticBackdropLabel">
+          <i class="bi bi-search"></i> Search Batch Code (Transfer)
+        </span>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
-      <div class="modal-body">
-        <!-- Search Filters -->
-        <form id="batchCodeSearchForm" class="row g-3 mb-3">
-          <div class="col-md-3">
-            <label for="productName" class="form-label">Product Name(make dyna)</label>
-
-            <select class="form-select" name="product_listing">
-              <option value="" disabled selected>Select product</option>
-              <option value="onion" selected>Onion</option>
-              <option value="shallots">Shallots</option>
-              <option value="potato">Potato</option>
-              <option value="tomato">Tomato</option>
-
-            </select>
-            <span class="error-product text-danger small"></span>
-          </div>
+      <div class="modal-body premium-modal-body">
+        <!-- Search Filters Card -->
+        <div class="premium-card-filter mb-4">
+          <form id="batchCodeSearchForm" class="row g-3">
+            <div class="col-md-4">
+              <label for="productName" class="form-label premium-form-label">Product Name</label>
+              <select class="form-select premium-form-select" name="product_listing">
+                <option value="" disabled selected>Select product</option>
+                @if(isset($productList))
+                  @foreach($productList as $product)
+                  <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                  @endforeach
+                @else
+                  <option value="onion">Onion</option>
+                  <option value="shallots">Shallots</option>
+                  <option value="potato">Potato</option>
+                  <option value="tomato">Tomato</option>
+                @endif
+              </select>
+              <span class="error-product text-danger small"></span>
+            </div>
          
-          <div class="col-md-3">
-            <label for="location" class="form-label">Location</label>
-            <select id="location" class="form-select" name="location" required>
-              <option selected disabled>Select location</option>
-              <!-- You can dynamically populate this via backend ,as of now its hardcoded -->
-              <option value=""></option>
+            <div class="col-md-4">
+              <label for="location" class="form-label premium-form-label">Location</label>
+              <select id="location" class="form-select premium-form-select" name="location" required>
+                <option selected disabled>Select location</option>
+                <!-- Dynamically populated via JS -->
+              </select>
+            </div>
 
+            <div class="col-md-4">
+              <label for="dateFrom" class="form-label premium-form-label">Purchase Month and Year</label>
+              <input type="month" class="form-control premium-form-control" id="purchase_date" name="dateFrom">
+            </div>
 
-            </select>
+            <div class="col-12 text-end mt-3">
+              <button type="submit" class="btn btn-primary px-4" id="search_batch_code">
+                <i class="bi bi-search"></i> Search Batches
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Quick Client-side Filter -->
+        <div class="row mb-3 align-items-center d-none" id="modalQuickFilterContainer">
+          <div class="col-md-6 ms-auto">
+            <div class="quick-filter-wrapper">
+              <i class="bi bi-funnel quick-filter-icon"></i>
+              <input type="text" id="modalQuickFilter" class="form-control premium-form-control quick-filter-input" placeholder="Quick filter results...">
+            </div>
           </div>
-          <div class="col-md-3">
-            <label for="dateFrom" class="form-label">Purchase Month and Year</label>
-            <input type="month" class="form-control" id="purchase_date" name="dateFrom">
-          </div>
+        </div>
 
-          <div class="col-12 text-end">
-            <button type="submit" class="btn btn-sm btn-primary" id="search_batch_code">Search</button>
+        <!-- Search Results List -->
+        <div id="batchCodeListResults" class="batch-list-results-container">
+          <div class="premium-empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
+            <div class="premium-empty-state-title">No Search Performed Yet</div>
+            <div class="premium-empty-state-text">Select product & location above, then click Search Batches.</div>
           </div>
-        </form>
-
-        <!-- Search Results Table -->
-        <div class="table-responsive">
-          <table class="table table-bordered table-sm table-hover" id="batchCodeResults">
-            <thead class="table-light">
-              <tr>
-                <th>#</th>
-                <th>Batch Code</th>
-                <th>Product</th>
-                <th>Grade</th>
-                <th>Location</th>
-                <th>Available Qty</th>
-                <th>Select</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Results will be dynamically injected here -->
-            </tbody>
-          </table>
         </div>
       </div>
 
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" id="confirmBatchBtn" disabled>Confirm</button>
+      <div class="modal-footer bg-light border-top-0">
+        <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

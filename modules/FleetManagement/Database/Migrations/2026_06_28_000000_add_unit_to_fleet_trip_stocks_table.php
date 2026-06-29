@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('fleet_trip_stocks', function (Blueprint $table) {
-            $table->string('unit')->nullable()->after('grade');
-        });
+        if (!Schema::hasColumn('fleet_trip_stocks', 'unit')) {
+            Schema::table('fleet_trip_stocks', function (Blueprint $table) {
+                $table->string('unit')->nullable()->after('grade');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('fleet_trip_stocks', function (Blueprint $table) {
-            $table->dropColumn('unit');
-        });
+        if (Schema::hasColumn('fleet_trip_stocks', 'unit')) {
+            Schema::table('fleet_trip_stocks', function (Blueprint $table) {
+                $table->dropColumn('unit');
+            });
+        }
     }
 };

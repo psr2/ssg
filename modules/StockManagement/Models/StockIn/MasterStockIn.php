@@ -18,7 +18,8 @@ class MasterStockIn extends Model
         'stock_in_date',
         'total_quantity',
         'notes',
-            ];
+        'stock_movement_type',
+    ];
 
     public function purchase()
     {

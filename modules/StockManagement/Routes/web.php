@@ -58,6 +58,7 @@ use Modules\StockManagement\Services\StockMovement\ReferenceNumber\StockReturnRe
 
 
  Route::post('/stock-adjustments' ,[StockAdjustmentController::class ,'adjustStock']); 
+ Route::post('/stock-adjustments/{id}/void' ,[StockAdjustmentController::class ,'voidStock']); 
 
   //stock segregation
   Route::get('/stock-segregation', [StockViewManagementResourceController::class, 'stockSegregation']);

@@ -331,7 +331,7 @@ document.getElementById('batchCodeSearchForm')?.addEventListener('submit', funct
         dateFrom:        form.dateFrom.value,
     };
 
-    fetch('/search-batch-code', {
+    fetch('/warehouse/search-batch-code', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

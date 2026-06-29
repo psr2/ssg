@@ -125,29 +125,13 @@ class StockAdjustmentRequest extends FormRequest
      */
     protected function validatePreMovementState($validator, StockPurchaseItem $stockItem): void
     {
-        $loc = LocationModel::find($stockItem->location_id);
-        if (!$loc) {
-            $validator->errors()->add('id', 'The original location associated with this stock item does not exist.');
-            return;
-        }
+        $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
 
-        $locType = $loc->type;
-        $locTypeValue = (is_object($locType) && isset($locType->value)) ? $locType->value : (string) $locType;
-
-        if ($locTypeValue === 'shop') {
-            $inventory = \Modules\ShopManagement\Models\ShopInventory::where('shop_id', $stockItem->location_id)
-                ->where('batch_id', $stockItem->batch)
-                ->first();
-        } else {
-            $inventory = \Modules\StockManagement\Models\Warehouse\WarehouseInventory::where('warehouse_id', $stockItem->location_id)
-                ->where('batch', $stockItem->batch)
-                ->first();
-        }
-
-        if (!$inventory) {
-            $validator->errors()->add('id', 'No physical inventory matches this batch at the original location. Adjustments are not allowed.');
-        } else if ($inventory->qty != $stockItem->quantity) {
-            $validator->errors()->add('id', 'Active stock movements (sales or transfers) have already occurred for this batch. Human error corrections are no longer permitted.');
+        if ($ledgerService->hasMovements($stockItem->location_id, $stockItem->product, $stockItem->batch, $stockItem->grade)) {
+            $validator->errors()->add(
+                'id',
+                'Active stock movements (sales, segregations, or transfers) have already occurred for this batch. Human error corrections are no longer permitted.'
+            );
         }
     }
 

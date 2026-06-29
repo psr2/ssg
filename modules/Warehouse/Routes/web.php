@@ -32,6 +32,8 @@ Route::prefix('warehouse')->group(function () {
     // Delete sale
     Route::delete('/sale/{id}/delete', [WarehouseSaleController::class, 'destroy'])->name('warehouse.sale.destroy');
 
+    // Scoped batch code search
+    Route::post('/search-batch-code', [WarehouseSaleController::class, 'searchBatches'])->name('warehouse.search-batch-code');
 });
 
 Route::prefix('warehouse/customer')->group(function () {

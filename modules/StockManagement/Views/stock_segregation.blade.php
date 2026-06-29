@@ -201,7 +201,7 @@
     </div>
 </div>
 
-@include('stock_management::Components.Modals.batch_code')
+@include('stock_management::Components.Modals.batch_code', ['locations' => $location])
 
 @vite(['resources/js/stock-management/stock_segregation.js'])
 @endsection

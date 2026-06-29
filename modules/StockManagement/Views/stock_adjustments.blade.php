@@ -67,21 +67,23 @@
                         <td>{{ $item->remarks ?? '—' }}</td>
                         <td>
                             <div style="display: flex; gap: 5px; align-items: center; justify-content: center;">
-                                <button class="btn btn-sm btn-primary update-btn" data-id="{{ $item->id }}"
-                                    data-product="{{ $item->product }}" data-batch="{{ $item->batch }}"
-                                    data-quantity="{{ $item->quantity }}" data-unit="{{ $item->unit }}"
-                                    data-remarks="{{ $item->remarks }}" data-location-id="{{ $item->location_id ?? '' }}"
-                                    data-location-name="{{ $item->location->name ?? '—' }}">
-                                    <i class="bi bi-pencil-square"></i>
-                                </button>
-
-                                <form action="" method="POST" style="display:inline-block; margin-bottom: 0;">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this adjustment?');">
-                                        <i class="bi bi-trash3"></i>
+                                @if ($item->quantity <= 0)
+                                    <span class="badge bg-secondary p-2"><i class="bi bi-slash-circle"></i> Voided / Empty</span>
+                                @else
+                                    <button class="btn btn-sm btn-primary update-btn" data-id="{{ $item->id }}"
+                                        data-product="{{ $item->product }}" data-batch="{{ $item->batch }}"
+                                        data-quantity="{{ $item->quantity }}" data-unit="{{ $item->unit }}"
+                                        data-remarks="{{ $item->remarks }}" data-location-id="{{ $item->location_id ?? '' }}"
+                                        data-location-name="{{ $item->location->name ?? '—' }}">
+                                        <i class="bi bi-pencil-square"></i> Adjust
                                     </button>
-                                </form>
+
+                                    <button class="btn btn-sm btn-danger void-btn" data-id="{{ $item->id }}"
+                                        data-product="{{ $item->product }}" data-batch="{{ $item->batch }}"
+                                        data-quantity="{{ $item->quantity }}">
+                                        <i class="bi bi-x-circle"></i> Void
+                                    </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -173,6 +175,48 @@
                     </button>
                     <button type="button" class="btn btn-success" id="submitAdjustment">
                         <i class="bi bi-check-circle"></i> Update
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    {{-- Void Stock Confirmation Modal --}}
+    <div class="modal fade" id="voidStockModal" tabindex="-1" aria-labelledby="voidStockModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-3 shadow-lg border-0">
+
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="voidStockModalLabel">
+                        Void Stock Receipt <i class="bi bi-exclamation-triangle ms-1"></i>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" id="void_id">
+                    
+                    <p class="text-muted">
+                        Are you sure you want to mark the stock receipt for product <strong id="void_product_display"></strong> (Batch: <strong id="void_batch_display"></strong>) as invalid?
+                    </p>
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-info-circle"></i> This operation will generate a negative contra-entry in the ledger, reducing the available quantity from <strong id="void_qty_display"></strong> to <strong>0.00</strong>. This cannot be undone.
+                    </div>
+
+                    <div class="col-md-12">
+                        <label for="void_remarks" class="form-label">Reason for Voiding <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="void_remarks" rows="3" placeholder="Provide a detailed explanation (min 10 characters)..."></textarea>
+                        <span class="text-danger small" id="error_void_remarks"></span>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger" id="submitVoid">
+                        <i class="bi bi-check-circle"></i> Confirm Void
                     </button>
                 </div>
 

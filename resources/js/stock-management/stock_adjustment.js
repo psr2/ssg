@@ -116,6 +116,64 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
+    // Void Modal Handlers
+    const voidModal = new bootstrap.Modal(document.getElementById('voidStockModal'));
+    const submitVoidBtn = document.getElementById('submitVoid');
+
+    document.querySelectorAll('.void-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('void_id').value = this.dataset.id;
+            document.getElementById('void_product_display').textContent = this.dataset.product;
+            document.getElementById('void_batch_display').textContent = this.dataset.batch;
+            document.getElementById('void_qty_display').textContent = this.dataset.quantity;
+            document.getElementById('void_remarks').value = '';
+            document.getElementById('error_void_remarks').textContent = '';
+
+            voidModal.show();
+        });
+    });
+
+    submitVoidBtn.addEventListener('click', function() {
+        const id = document.getElementById('void_id').value;
+        const remarks = document.getElementById('void_remarks').value;
+        document.getElementById('error_void_remarks').textContent = '';
+
+        if (!remarks || remarks.trim().length < 10) {
+            document.getElementById('error_void_remarks').textContent = 'Please provide a detailed remark of at least 10 characters.';
+            return;
+        }
+
+        fetch(`/stock-adjustments/${id}/void`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ remarks: remarks })
+        })
+        .then(async response => {
+            if (response.status === 422) {
+                const data = await response.json();
+                if (data.errors && data.errors.remarks) {
+                    document.getElementById('error_void_remarks').textContent = data.errors.remarks.join(", ");
+                } else if (data.message) {
+                    document.getElementById('error_void_remarks').textContent = data.message;
+                }
+                return;
+            }
+
+            if (!response.ok) {
+                alert("Void operation failed. Make sure there are no downstream movements for this batch.");
+                return;
+            }
+
+            location.reload();
+        })
+        .catch(err => {
+            console.error("AJAX Error:", err);
+        });
+    });
+
     // Clear all field error spans
     function clearFieldErrors() {
         const errorSpans = document.querySelectorAll('[id^="error_"]');

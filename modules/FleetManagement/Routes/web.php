@@ -37,6 +37,7 @@ Route::prefix('fleet/vehicles')->group(function () {
 
 Route::get('/fleet-trips', [FleetTripController::class, 'index']);
 Route::post('/create-trip', [FleetTripController::class, 'createTrip']);
+Route::post('/fleet/search-batch-code', [FleetTripController::class, 'searchBatches']);
 
 //Dispatch stock to the fleet
 Route::post('/stock-dispatch', [StockDispatchController::class, 'handleStockDispatch']);

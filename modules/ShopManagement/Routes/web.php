@@ -12,6 +12,7 @@ Route::prefix('shop')->group(function () {
     Route::post('/sale/store/payments', [SaleController::class, 'store']);
     Route::get('/product/list', [SaleController::class, 'productlist']);
     Route::post('/sale/payments/update', [SaleController::class, 'updatePayments']);
+    Route::post('/search-batch-code', [SaleController::class, 'searchBatches']);
 
   
 });
