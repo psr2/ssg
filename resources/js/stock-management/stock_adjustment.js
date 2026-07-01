@@ -87,10 +87,11 @@ document.addEventListener("DOMContentLoaded", function() {
         clearFieldErrors();
 
         // AJAX POST
-        fetch(`/stock-adjustments/`, {
+        fetch(`/stock-adjustments`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "Accept": "application/json",
                 "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
             },
             body: JSON.stringify(payload)
@@ -147,6 +148,7 @@ document.addEventListener("DOMContentLoaded", function() {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "Accept": "application/json",
                 "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
             },
             body: JSON.stringify({ remarks: remarks })
@@ -182,13 +184,19 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Show backend validation errors under each input
     function showFieldErrors(errors) {
+        let unmappedErrors = [];
         Object.keys(errors).forEach(field => {
             const spanId = "error_" + field.replace(/\./g, "_"); // replace dots in nested keys
             const span = document.getElementById(spanId);
             if (span) {
                 span.textContent = errors[field].join(", ");
+            } else {
+                unmappedErrors.push(errors[field].join(", "));
             }
         });
+        if (unmappedErrors.length > 0) {
+            alert(unmappedErrors.join("\n"));
+        }
     }
 
 });

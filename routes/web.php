@@ -12,6 +12,8 @@ require base_path('modules/Locations/Routes/api.php');
 
 require base_path('modules/StockManagement/Routes/web.php');
 
+require base_path('modules/StockLedger/Routes/web.php');
+
 require base_path('modules/FleetManagement/Routes/web.php');
 
 require base_path('modules/ShopManagement/Routes/web.php');

@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\StockManagement\Controllers\BatchCodeSearchController;
-use Modules\StockManagement\Controllers\StockAdjustmentController;
 use Modules\StockManagement\Controllers\StockViewManagementResourceController;
 use Modules\StockManagement\Controllers\StockInController;
 use Modules\StockManagement\Controllers\StockOutController;
@@ -51,14 +50,6 @@ use Modules\StockManagement\Services\StockMovement\ReferenceNumber\StockReturnRe
 
  Route::get('/stock-transfer' ,[StockViewManagementResourceController::class ,'stockTransfer']); 
  Route::post('/stock-transfer' ,[StockTransferController::class ,'index']); 
-
-
- //stock adjustments
- Route::get('/stock-adjustments' ,[StockAdjustmentController::class ,'index']); 
-
-
- Route::post('/stock-adjustments' ,[StockAdjustmentController::class ,'adjustStock']); 
- Route::post('/stock-adjustments/{id}/void' ,[StockAdjustmentController::class ,'voidStock']); 
 
   //stock segregation
   Route::get('/stock-segregation', [StockViewManagementResourceController::class, 'stockSegregation']);

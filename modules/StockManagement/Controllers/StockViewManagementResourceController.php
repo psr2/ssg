@@ -63,7 +63,13 @@ class StockViewManagementResourceController extends Controller
             // Database not ready or table doesn't exist
         }
 
-        return view('stock_management::Components.stock_transfer', compact('productList', 'grades', 'units'));
+        $transfers = \Modules\StockManagement\Models\StockTransfer\StockTransfer::with([
+            'fromLocation', 
+            'toLocation', 
+            'items.product'
+        ])->orderBy('id', 'desc')->paginate(15);
+
+        return view('stock_management::Components.stock_transfer', compact('productList', 'grades', 'units', 'transfers'));
     }
 
     public function stockTransit(): View

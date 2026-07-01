@@ -18,5 +18,12 @@ class BootstrapStockLedgerProvider extends ServiceProvider
     /**
      * Bootstrap services.
      */
-    public function boot(): void {}
+    public function boot(): void
+    {
+        $viewPath = __DIR__ . '/Views';
+        $resolvedPath = realpath($viewPath);
+        if ($resolvedPath && is_dir($resolvedPath)) {
+            $this->loadViewsFrom($resolvedPath, 'stock_ledger');
+        }
+    }
 }

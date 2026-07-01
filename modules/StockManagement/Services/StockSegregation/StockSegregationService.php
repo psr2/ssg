@@ -126,7 +126,16 @@ class StockSegregationService
             ->where('stock_transfer_items.grade', $grade)
             ->sum('stock_transfer_items.quantity') ?? 0.00;
 
-        return max(0.00, (float)($baseQty + $transferredInQty - $soldQty - $stockOutQty - $transferredOutQty));
+        // 7. Add ledger adjustments & voids
+        $adjustmentQty = DB::table('stock_ledger_entries')
+            ->where('location_id', $locationId)
+            ->where('product_id', $productId)
+            ->where('batch_code', $batchCode)
+            ->where('grade', $grade)
+            ->whereIn('transaction_type', ['ADJUSTMENT', 'VOID'])
+            ->sum('quantity') ?? 0.00;
+
+        return max(0.00, (float)($baseQty + $transferredInQty - $soldQty - $stockOutQty - $transferredOutQty + $adjustmentQty));
     }
 
     /**

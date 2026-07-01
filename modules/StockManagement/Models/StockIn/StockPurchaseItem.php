@@ -26,4 +26,14 @@ class StockPurchaseItem extends Model
     {
         return $this->belongsTo(Location::class, 'location_id');
     }
+
+    public function productRelation()
+    {
+        return $this->belongsTo(\Modules\Inventory\Models\Products::class, 'product');
+    }
+
+    public function gradeRelation()
+    {
+        return $this->belongsTo(\Modules\Inventory\Models\ProductGrade::class, 'grade', 'code');
+    }
 }
