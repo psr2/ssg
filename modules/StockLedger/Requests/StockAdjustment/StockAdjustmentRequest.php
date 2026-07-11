@@ -23,6 +23,7 @@ class StockAdjustmentRequest extends FormRequest
         return [
             'id' => ['required', 'integer', 'exists:stock_purchase_items,id'],
             'batch' => ['required', 'string', 'exists:stock_purchase_items,batch'],
+            'location_id' => ['required', 'integer', 'exists:locations,id'],
             'quantity' => ['sometimes', 'numeric', 'min:0.01'],
             'unit' => ['sometimes', 'string', 'in:pcs,bx,kg'],
             'new_location_id' => ['sometimes', 'integer', 'exists:locations,id'],
@@ -130,10 +131,11 @@ class StockAdjustmentRequest extends FormRequest
     protected function validatePreMovementState($validator, StockPurchaseItem $stockItem): void
     {
         $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
+        $locationId = $this->input('location_id', $stockItem->location_id);
 
-        if ($ledgerService->hasMovements($stockItem->location_id, $stockItem->product, $stockItem->batch, $stockItem->grade)) {
-            $currentUnit = $ledgerService->getLatestUnit($stockItem->location_id, $stockItem->product, $stockItem->batch, $stockItem->grade);
-            $currentLocationId = $ledgerService->getLatestLocationId($stockItem->location_id, $stockItem->product, $stockItem->batch, $stockItem->grade);
+        if ($ledgerService->hasMovements($locationId, $stockItem->product, $stockItem->batch, $stockItem->grade)) {
+            $currentUnit = $ledgerService->getLatestUnit($locationId, $stockItem->product, $stockItem->batch, $stockItem->grade);
+            $currentLocationId = $locationId;
 
             $requestedUnit = $this->input('unit');
             $requestedLocationId = $this->input('new_location_id');
@@ -142,7 +144,7 @@ class StockAdjustmentRequest extends FormRequest
                 ($requestedLocationId && $requestedLocationId != $currentLocationId)) {
                 $validator->errors()->add(
                     'id',
-                    'Active stock movements have already occurred for this batch. You can only adjust the quantity at its current location; changing the unit or location is not permitted.'
+                    'Active stock movements have already occurred for this batch at this location. You can only adjust the quantity at its current location; changing the unit or location is not permitted.'
                 );
             }
         }
@@ -150,26 +152,50 @@ class StockAdjustmentRequest extends FormRequest
 
     /**
      * Enforce a hard threshold on adjustment deviation.
-     * Quantity cannot be adjusted by more than 50% from the original received quantity.
+     * Quantity cannot be adjusted by more than 50% from the baseline quantity.
      */
     protected function validateQuantityDeviation($validator, StockPurchaseItem $stockItem): void
     {
         Log::debug("reached deviation error");
 
         $quantity = $this->input('quantity');
-        if ($quantity !== null && is_numeric($quantity) && $quantity != $stockItem->quantity) {
-            $difference = abs($quantity - $stockItem->quantity);
-            $deviationPercent = ($difference / $stockItem->quantity) * 100;
-            if ($deviationPercent > 50) {
-                  Log::warning(
-                    "Stock adjustment deviation limit exceeded. Batch: {$stockItem->batch}, " .
-                    "Original Qty: {$stockItem->quantity}, Requested Qty: {$quantity}, " .
-                    "Deviation: " . number_format($deviationPercent, 2) . "%"
-                );
-                $validator->errors()->add(
-                    'quantity',
-                    sprintf('Quantity deviation of %.1f%% exceeds the maximum allowed threshold of 50%%. Please contact a system administrator for large corrections.', $deviationPercent)
-                );
+        if ($quantity !== null && is_numeric($quantity)) {
+            $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
+            $locationId = $this->input('location_id', $stockItem->location_id);
+
+            if ($locationId == $stockItem->location_id) {
+                $baselineQty = $stockItem->quantity;
+            } else {
+                $baselineQty = (float)\Modules\StockLedger\Models\StockLedgerEntry::where([
+                    'location_id'      => $locationId,
+                    'product_id'       => $stockItem->product,
+                    'batch_code'       => $stockItem->batch,
+                    'transaction_type' => 'TRANSFER_IN',
+                ])
+                ->when($stockItem->grade, function($q) use ($stockItem) {
+                    $q->where('grade', $stockItem->grade);
+                })
+                ->sum('quantity');
+
+                if ($baselineQty <= 0) {
+                    $baselineQty = $ledgerService->getAvailableStock($locationId, $stockItem->product, $stockItem->batch, $stockItem->grade);
+                }
+            }
+
+            if ($baselineQty > 0 && $quantity != $baselineQty) {
+                $difference = abs($quantity - $baselineQty);
+                $deviationPercent = ($difference / $baselineQty) * 100;
+                if ($deviationPercent > 50) {
+                    Log::warning(
+                        "Stock adjustment deviation limit exceeded. Batch: {$stockItem->batch}, " .
+                        "Location ID: {$locationId}, Baseline Qty: {$baselineQty}, Requested Qty: {$quantity}, " .
+                        "Deviation: " . number_format($deviationPercent, 2) . "%"
+                    );
+                    $validator->errors()->add(
+                        'quantity',
+                        sprintf('Quantity deviation of %.1f%% exceeds the maximum allowed threshold of 50%%. Please contact a system administrator for large corrections.', $deviationPercent)
+                    );
+                }
             }
         }
     }

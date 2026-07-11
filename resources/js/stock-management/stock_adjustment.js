@@ -78,6 +78,7 @@ document.addEventListener("DOMContentLoaded", function() {
         payload.id = id;
         payload.batch = batch;
         payload.remarks = remarks;
+        payload.location_id = originalLocationId;
 
         if (newQuantity !== originalQuantity) payload.quantity = newQuantity;
         if (newUnit && newUnit !== originalUnit) payload.unit = newUnit;

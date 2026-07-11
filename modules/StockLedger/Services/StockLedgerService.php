@@ -176,4 +176,53 @@ class StockLedgerService
             ->orderBy('created_at', 'asc')
             ->get();
     }
+
+    /**
+     * Get the corrected purchase details for a purchase item (excluding operational movements like transfers/sales).
+     */
+    public function getCorrectedPurchaseDetails(\Modules\StockManagement\Models\StockIn\StockPurchaseItem $item): array
+    {
+        // 1. Get all adjustments and voids for this batch
+        $entries = StockLedgerEntry::where('batch_code', $item->batch)
+            ->where('product_id', $item->product)
+            ->whereIn('transaction_type', ['ADJUSTMENT', 'VOID'])
+            ->orderBy('id', 'asc')
+            ->get();
+
+        // 2. Track the location and unit through the corrections
+        $correctedLocationId = $item->location_id;
+        $correctedUnit = $item->unit;
+
+        foreach ($entries as $entry) {
+            if ($entry->location_id) {
+                $correctedLocationId = $entry->location_id;
+            }
+            if ($entry->unit) {
+                $correctedUnit = $entry->unit;
+            }
+        }
+
+        // 3. Compute corrected quantity at the final corrected location
+        // Base quantity is the original quantity if the corrected location is the original location
+        $baseQty = ($correctedLocationId == $item->location_id && $correctedUnit == $item->unit) ? (float)$item->quantity : 0.00;
+
+        // Sum of adjustments/voids at the corrected location and unit
+        $adjustmentQty = (float)StockLedgerEntry::where([
+            'location_id'      => $correctedLocationId,
+            'product_id'       => $item->product,
+            'batch_code'       => $item->batch,
+            'unit'             => $correctedUnit,
+        ])
+        ->whereIn('transaction_type', ['ADJUSTMENT', 'VOID'])
+        ->when($item->grade, function($q) use ($item) {
+            $q->where('grade', $item->grade);
+        })
+        ->sum('quantity');
+
+        return [
+            'location_id' => $correctedLocationId,
+            'unit'        => $correctedUnit,
+            'quantity'    => max(0.00, $baseQty + $adjustmentQty),
+        ];
+    }
 }

@@ -53,17 +53,16 @@ class StockAdjustmentService
     {
         return DB::transaction(function () use ($payload) {
             $item = StockPurchaseItem::findOrFail($payload['id']);
-            $oldLocationId = $item->location_id;
+            $oldLocationId = isset($payload['location_id']) ? (int)$payload['location_id'] : $item->location_id;
 
-            // 1. Create adjustment log record (for audit/tracking)
-            $adjustment = $this->createStockAdjustmentEntry($item, $payload);
-
-            // 2. Record dynamic entries to the StockLedger
             $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
 
             $currentQty = $ledgerService->getAvailableStock($oldLocationId, $item->product, $item->batch, $item->grade);
             $currentUnit = $ledgerService->getLatestUnit($oldLocationId, $item->product, $item->batch, $item->grade);
-            $currentLocationId = $ledgerService->getLatestLocationId($oldLocationId, $item->product, $item->batch, $item->grade);
+            $currentLocationId = $oldLocationId;
+
+            // 1. Create adjustment log record (for audit/tracking)
+            $adjustment = $this->createStockAdjustmentEntry($item, $payload, $currentLocationId, $currentQty, $currentUnit);
 
             $newQty = isset($payload['quantity']) ? (float)$payload['quantity'] : $currentQty;
             $newUnit = $payload['unit'] ?? $currentUnit;
@@ -192,11 +191,16 @@ class StockAdjustmentService
         });
     }
 
-    private function createStockAdjustmentEntry(StockPurchaseItem $item, array $payload): StockAdjustment
-    {
-        $qtyChanged = isset($payload['quantity']) && $payload['quantity'] != $item->quantity;
-        $unitChanged = isset($payload['unit']) && $payload['unit'] != $item->unit;
-        $locationChanged = isset($payload['new_location_id']) && $payload['new_location_id'] != $item->location_id;
+    private function createStockAdjustmentEntry(
+        StockPurchaseItem $item,
+        array $payload,
+        int $currentLocationId,
+        float $currentQty,
+        string $currentUnit
+    ): StockAdjustment {
+        $qtyChanged = isset($payload['quantity']) && $payload['quantity'] != $currentQty;
+        $unitChanged = isset($payload['unit']) && $payload['unit'] != $currentUnit;
+        $locationChanged = isset($payload['new_location_id']) && $payload['new_location_id'] != $currentLocationId;
 
         $adjustmentType = 'CORRECTION';
         if ($locationChanged && !$qtyChanged && !$unitChanged) {
@@ -207,19 +211,19 @@ class StockAdjustmentService
             $adjustmentType = 'UNIT_CHANGE';
         }
 
-        $oldUnitId = \Modules\Inventory\Models\UnitOfMeasurement::where('abbreviation', $item->unit)->orWhere('name', $item->unit)->first()?->id;
+        $oldUnitId = \Modules\Inventory\Models\UnitOfMeasurement::where('abbreviation', $currentUnit)->orWhere('name', $currentUnit)->first()?->id;
 
-        $newUnit = $payload['unit'] ?? $item->unit;
+        $newUnit = $payload['unit'] ?? $currentUnit;
         $newUnitId = $newUnit ? (\Modules\Inventory\Models\UnitOfMeasurement::where('abbreviation', $newUnit)->orWhere('name', $newUnit)->first()?->id) : null;
 
         return StockAdjustment::create([
             'stock_purchase_item_id' => $item->id,
-            'old_quantity'           => $item->quantity,
-            'new_quantity'           => $payload['quantity'] ?? $item->quantity,
+            'old_quantity'           => $currentQty,
+            'new_quantity'           => $payload['quantity'] ?? $currentQty,
             'old_unit_id'            => $oldUnitId,
             'new_unit_id'            => $newUnitId,
-            'old_location_id'        => $item->location_id,
-            'new_location_id'        => $payload['new_location_id'] ?? $item->location_id,
+            'old_location_id'        => $currentLocationId,
+            'new_location_id'        => $payload['new_location_id'] ?? $currentLocationId,
             'adjustment_type'        => $adjustmentType,
             'remarks'                => $payload['remarks'] ?? null,
             'created_by'             => auth()->id(),

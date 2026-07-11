@@ -61,7 +61,12 @@
                         <td>{{ $item->productRelation->name ?? $item->product }}</td>
                         <td>{{ $item->batch }}</td>
                         <td>{{ $item->gradeRelation->name ?? $item->grade }}</td>
-                        <td>{{ $item->quantity }}</td>
+                        <td>
+                            {{ $item->quantity }}
+                            @if(isset($item->original_quantity) && $item->original_quantity != $item->quantity && $item->location_id == $item->original_location_id)
+                                <br><small class="text-muted" title="Original Purchase Quantity">Original: {{ $item->original_quantity }}</small>
+                            @endif
+                        </td>
                         <td>{{ $item->unit }}</td>
                         <td>{{ $item->location->name ?? '—' }}</td>
                         <td>{{ $item->remarks ?? '—' }}</td>
@@ -306,6 +311,7 @@ document.addEventListener("DOMContentLoaded", function() {
         payload.id = id;
         payload.batch = batch;
         payload.remarks = remarks;
+        payload.location_id = originalLocationId;
 
         if (newQuantity !== originalQuantity) payload.quantity = newQuantity;
         if (newUnit && newUnit !== originalUnit) payload.unit = newUnit;

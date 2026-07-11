@@ -26,22 +26,45 @@ class StockAdjustmentController extends Controller
 
         $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
 
-        // Map over the items collection to inject live ledger data
-        $items->getCollection()->transform(function ($item) use ($ledgerService) {
-            $latestUnit = $ledgerService->getLatestUnit($item->location_id, $item->product, $item->batch, $item->grade);
-            $latestLocationId = $ledgerService->getLatestLocationId($item->location_id, $item->product, $item->batch, $item->grade);
-            $availableQty = $ledgerService->getAvailableStock($latestLocationId, $item->product, $item->batch, $item->grade);
+        $expandedItems = collect();
 
-            $item->quantity = $availableQty;
-            $item->unit = $latestUnit;
-            
-            if ($latestLocationId != $item->location_id) {
-                $item->location_id = $latestLocationId;
-                $item->load('location');
+        foreach ($items->getCollection() as $item) {
+            // Find all locations that have ledger entries for this batch
+            $locationIds = \Modules\StockLedger\Models\StockLedgerEntry::where('batch_code', $item->batch)
+                ->where('product_id', $item->product)
+                ->distinct()
+                ->pluck('location_id')
+                ->all();
+
+            // Always include the original location as well
+            if (!in_array($item->location_id, $locationIds)) {
+                $locationIds[] = $item->location_id;
             }
 
-            return $item;
-        });
+            foreach ($locationIds as $locId) {
+                // Get the available stock at this location
+                $availableQty = $ledgerService->getAvailableStock($locId, $item->product, $item->batch, $item->grade);
+
+                // We only show the row if there is available stock > 0, OR if it's the original location (to allow corrections)
+                if ($availableQty > 0 || $locId == $item->location_id) {
+                    $clonedItem = clone $item;
+                    $clonedItem->original_location_id = $item->location_id;
+                    $clonedItem->original_quantity = $item->quantity;
+                    
+                    $clonedItem->location_id = $locId;
+                    $clonedItem->quantity = $availableQty;
+                    
+                    $latestUnit = $ledgerService->getLatestUnit($locId, $item->product, $item->batch, $item->grade);
+                    $clonedItem->unit = $latestUnit;
+                    
+                    $clonedItem->load('location');
+                    
+                    $expandedItems->push($clonedItem);
+                }
+            }
+        }
+
+        $items->setCollection($expandedItems);
 
         // Get all locations from the interface
         $locations = $this->locationsService->shareLocation(); // assuming this returns JSON or array
