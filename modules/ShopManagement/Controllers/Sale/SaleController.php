@@ -73,10 +73,7 @@ class SaleController extends Controller
         
     }
 
-    /**
-     * Search batch codes for shop.
-     */
-    public function searchBatches(\Illuminate\Http\Request $request, \Modules\StockManagement\Repositories\BatchCode\BatchCodeRepository $repo)
+    public function searchBatches(\Illuminate\Http\Request $request, \Modules\ShopManagement\Repository\ShopBatchCodeRepository $repo)
     {
         $results = $repo->search($request->all());
         return response()->json($results);

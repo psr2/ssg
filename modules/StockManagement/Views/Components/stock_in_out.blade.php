@@ -183,7 +183,7 @@
                 <!-- Unit Cost -->
                 <div class="col-md-3" id="unit_cost_col">
                     <label class="form-label">Unit Cost</label>
-                    <input value="" type="number" class="form-control" id="unit_cost" placeholder="Cost"
+                    <input value=""  inputmode="decimal" class="form-control" id="unit_cost" placeholder="Cost"
                         name="products[][unit_cost]">
                     <span class="error-unit_cost text-danger small"></span>
                 </div>

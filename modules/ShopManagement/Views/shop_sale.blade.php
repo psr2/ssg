@@ -468,7 +468,7 @@
     </div>
   </div>
 </div>
-@include('stock_management::Components.Modals.batch_code', [
+@include('shop_management::Components.Modals.batch_code', [
 'locations' => $location,
 'products' => $productList
 ])

@@ -329,7 +329,7 @@
 <div id="grades-data" data-grades="{{ json_encode($grades) }}" class="d-none"></div>
 <div id="wh-customers-data" data-customers="{{ json_encode($warehouseCustomers) }}" class="d-none"></div>
 
-@include('stock_management::Components.Modals.batch_code', [
+@include('warehouse::Components.Modals.batch_code', [
     'locations' => $location,
     'products'  => $productList
 ])

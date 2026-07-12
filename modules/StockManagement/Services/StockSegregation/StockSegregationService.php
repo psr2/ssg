@@ -33,49 +33,59 @@ class StockSegregationService
                 ->first();
         }
 
-        if (!$parentInventory) {
-            return 0.00;
-        }
+        $parentInventoryGrade = null;
+        $parentInventoryQty = 0.00;
+        $baseQty = 0.00;
 
-        $parentInventoryGrade = $parentInventory->grade;
-        $parentInventoryQty = (float)$parentInventory->qty;
+        if ($parentInventory) {
+            $parentInventoryGrade = $parentInventory->grade;
+            $parentInventoryQty = (float)$parentInventory->qty;
 
-        // 2. Calculate the base quantity for this grade
-        if ($grade === $parentInventoryGrade) {
-            // Get all other child grades that have been segregated from this batch at this location
-            $childGrades = DB::table('stock_segregation_items')
-                ->join('stock_segregations', 'stock_segregations.id', '=', 'stock_segregation_items.stock_segregation_id')
-                ->where('stock_segregations.location_id', $locationId)
-                ->where('stock_segregations.product_id', $productId)
-                ->where('stock_segregations.parent_batch_code', $batchCode)
-                ->where('stock_segregation_items.grade', '!=', $parentInventoryGrade)
-                ->distinct()
-                ->pluck('stock_segregation_items.grade')
-                ->toArray();
-
-            $sumChildGradesQty = 0.00;
-            foreach ($childGrades as $cg) {
-                // In a pure ledger, the quantity physically removed from the parent batch is the initial segregated quantity,
-                // not the current remaining child stock.
-                $sumChildGradesQty += DB::table('stock_segregation_items')
+            // 2. Calculate the base quantity for this grade
+            if ($grade === $parentInventoryGrade) {
+                // Get all other child grades that have been segregated from this batch at this location
+                $childGrades = DB::table('stock_segregation_items')
                     ->join('stock_segregations', 'stock_segregations.id', '=', 'stock_segregation_items.stock_segregation_id')
                     ->where('stock_segregations.location_id', $locationId)
                     ->where('stock_segregations.product_id', $productId)
                     ->where('stock_segregations.parent_batch_code', $batchCode)
-                    ->where('stock_segregation_items.grade', $cg)
+                    ->where('stock_segregation_items.grade', '!=', $parentInventoryGrade)
+                    ->distinct()
+                    ->pluck('stock_segregation_items.grade')
+                    ->toArray();
+
+                $sumChildGradesQty = 0.00;
+                foreach ($childGrades as $cg) {
+                    // In a pure ledger, the quantity physically removed from the parent batch is the initial segregated quantity,
+                    // not the current remaining child stock.
+                    $sumChildGradesQty += DB::table('stock_segregation_items')
+                        ->join('stock_segregations', 'stock_segregations.id', '=', 'stock_segregation_items.stock_segregation_id')
+                        ->where('stock_segregations.location_id', $locationId)
+                        ->where('stock_segregations.product_id', $productId)
+                        ->where('stock_segregations.parent_batch_code', $batchCode)
+                        ->where('stock_segregation_items.grade', $cg)
+                        ->sum('stock_segregation_items.quantity') ?? 0.00;
+                }
+
+                $baseQty = (float)($parentInventoryQty - $sumChildGradesQty);
+            } else {
+                // For child grades, sum segregated qty at this location
+                $baseQty = DB::table('stock_segregation_items')
+                    ->join('stock_segregations', 'stock_segregations.id', '=', 'stock_segregation_items.stock_segregation_id')
+                    ->where('stock_segregations.location_id', $locationId)
+                    ->where('stock_segregations.product_id', $productId)
+                    ->where('stock_segregations.parent_batch_code', $batchCode)
+                    ->where('stock_segregation_items.grade', $grade)
                     ->sum('stock_segregation_items.quantity') ?? 0.00;
             }
-
-            $baseQty = (float)($parentInventoryQty - $sumChildGradesQty);
         } else {
-            // For child grades, sum segregated qty at this location
-            $baseQty = DB::table('stock_segregation_items')
-                ->join('stock_segregations', 'stock_segregations.id', '=', 'stock_segregation_items.stock_segregation_id')
-                ->where('stock_segregations.location_id', $locationId)
-                ->where('stock_segregations.product_id', $productId)
-                ->where('stock_segregations.parent_batch_code', $batchCode)
-                ->where('stock_segregation_items.grade', $grade)
-                ->sum('stock_segregation_items.quantity') ?? 0.00;
+            // Lookup global parent grade to preserve behavior for stock-out matching
+            $globalParent = WarehouseInventory::where('batch', $batchCode)->first()
+                ?? DB::table('shop_inventory')->where('batch_id', $batchCode)->first()
+                ?? DB::table('stock_purchase_items')->where('batch', $batchCode)->first();
+            if ($globalParent) {
+                $parentInventoryGrade = $globalParent->grade ?? null;
+            }
         }
 
         // 3. Subtract sold qty

@@ -143,10 +143,7 @@ class FleetTripController extends Controller
         ];
     }
 
-    /**
-     * Search batch codes for fleet.
-     */
-    public function searchBatches(\Illuminate\Http\Request $request, \Modules\StockManagement\Repositories\BatchCode\BatchCodeRepository $repo)
+    public function searchBatches(\Illuminate\Http\Request $request, \Modules\FleetManagement\Repository\FleetBatchCodeRepository $repo)
     {
         $results = $repo->search($request->all());
         return response()->json($results);

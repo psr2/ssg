@@ -106,15 +106,16 @@ class WarehouseOverview extends Controller
         $allCombos = [];
         foreach ([$whCombos, $segCombos, $transCombos] as $combos) {
             foreach ($combos as $c) {
-                if (!$c->batch_code || !$c->product_id || !$c->grade) {
+                if (!$c->batch_code || !$c->product_id) {
                     continue;
                 }
-                $key = "{$c->product_id}_{$c->batch_code}_{$c->grade}";
+                $gradeVal = $c->grade ?: '';
+                $key = "{$c->product_id}_{$c->batch_code}_{$gradeVal}";
                 if (!isset($allCombos[$key])) {
                     $allCombos[$key] = [
                         'batch_code' => $c->batch_code,
                         'product_id' => (int)$c->product_id,
-                        'grade' => $c->grade,
+                        'grade' => $gradeVal,
                         'product_name' => $c->product_name,
                         'product_sku' => $c->product_sku,
                         'unit' => $c->unit ?: 'pcs',

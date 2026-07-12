@@ -19,7 +19,6 @@ class MigrationsServiceProvider extends ServiceProvider
 
         if ($resolvedPath) {
             $this->loadMigrationsFrom($resolvedPath);
-            // Log::info('Migrations loaded from: ' . $resolvedPath);
         } else {
             Log::error('Migration path does not exist or is not readable: ' . self::MIGRATIONS_PATH);
         }

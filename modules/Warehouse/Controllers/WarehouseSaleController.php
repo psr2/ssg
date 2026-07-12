@@ -122,10 +122,7 @@ class WarehouseSaleController extends Controller
         }
     }
 
-    /**
-     * Search batch codes for warehouse.
-     */
-    public function searchBatches(\Illuminate\Http\Request $request, \Modules\StockManagement\Repositories\BatchCode\BatchCodeRepository $repo)
+    public function searchBatches(\Illuminate\Http\Request $request, \Modules\Warehouse\Repositories\WarehouseBatchCodeRepository $repo)
     {
         $results = $repo->search($request->all());
         return response()->json($results);
