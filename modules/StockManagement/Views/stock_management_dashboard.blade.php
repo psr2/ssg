@@ -6,8 +6,3 @@
 
 
 @endsection
-
-@section('stock_adjustments')
-
-
-@endsection

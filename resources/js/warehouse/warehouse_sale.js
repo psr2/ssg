@@ -287,7 +287,6 @@ document.addEventListener('click', function (e) {
     if (e.target && e.target.classList.contains('wh-item-batch-code')) {
         whCurrentBatchInput = e.target;
 
-        // Auto-populate product and location in the batch code search modal
         const row = e.target.closest('tr');
         if (row) {
             const productSelect = row.querySelector('.wh-item-product');
@@ -299,20 +298,14 @@ document.addEventListener('click', function (e) {
             const modalProductSelect = document.querySelector('#batchCodeSearchForm select[name="product_listing"]');
             const modalLocationSelect = document.querySelector('#batchCodeSearchForm select[name="location"]');
 
-            if (modalProductSelect && productId) {
-                modalProductSelect.value = productId;
-            }
-            if (modalLocationSelect && warehouseId) {
-                modalLocationSelect.value = warehouseId;
-            }
+            if (modalProductSelect && productId) modalProductSelect.value = productId;
+            if (modalLocationSelect && warehouseId) modalLocationSelect.value = warehouseId;
 
-            // Clear previous results in the modal table
-            const tbody = document.querySelector('#batchCodeResults tbody');
-            if (tbody) {
-                tbody.innerHTML = '';
-            }
+            // Clear previous results
+            const listContainer = document.getElementById('batchCodeListResults');
+            if (listContainer) listContainer.innerHTML = '';
 
-            // Auto-trigger search if both product and location are set
+            // Auto-trigger search if both product and location are ready
             if (modalProductSelect && modalLocationSelect && productId && warehouseId) {
                 setTimeout(() => {
                     document.getElementById('search_batch_code')?.click();
@@ -331,6 +324,9 @@ document.getElementById('batchCodeSearchForm')?.addEventListener('submit', funct
         dateFrom:        form.dateFrom.value,
     };
 
+    const listContainer = document.getElementById('batchCodeListResults');
+    if (!listContainer) return;
+
     fetch('/warehouse/search-batch-code', {
         method: 'POST',
         headers: {
@@ -341,54 +337,106 @@ document.getElementById('batchCodeSearchForm')?.addEventListener('submit', funct
     })
     .then(res => res.json())
     .then(results => {
-        const tbody = document.querySelector('#batchCodeResults tbody');
-        tbody.innerHTML = '';
+        listContainer.innerHTML = '';
+
+        const filterContainer = document.getElementById('modalQuickFilterContainer');
+        const filterInput     = document.getElementById('modalQuickFilter');
+        if (filterInput) filterInput.value = '';
 
         if (!results.length) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No results found.</td></tr>`;
+            if (filterContainer) filterContainer.classList.add('d-none');
+            listContainer.innerHTML = `
+            <div class="premium-empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                </svg>
+                <div class="premium-empty-state-title">No Batches Found</div>
+                <div class="premium-empty-state-text">No available stock matches the selected product and warehouse.</div>
+            </div>`;
             return;
         }
 
-        results.forEach((item, i) => {
-            tbody.innerHTML += `
-            <tr>
-                <td>${i + 1}</td>
-                <td>${item.batch_code}</td>
-                <td>${item.product}</td>
-                <td>${item.grade}</td>
-                <td>${item.location}</td>
-                <td>${item.available_qty}</td>
-                <td>
-                    <button data-bs-target="#warehouseSaleModal" data-bs-toggle="modal"
-                        class="btn btn-sm btn-success wh-select-batch"
-                        data-batch-code="${item.batch_code}"
-                        data-grade="${item.grade}">Select</button>
-                </td>
-            </tr>`;
+        if (filterContainer) filterContainer.classList.remove('d-none');
+
+        results.forEach(item => {
+            let gradeClass = 'badge-grade-unsorted';
+            const gradeLower = (item.grade || '').toLowerCase();
+            if      (gradeLower === 'a' || gradeLower === 'big')         gradeClass = 'badge-grade-a';
+            else if (gradeLower === 'b' || gradeLower === 'small')       gradeClass = 'badge-grade-b';
+            else if (gradeLower === 'c')                                  gradeClass = 'badge-grade-c';
+            else if (gradeLower === 'waste' || gradeLower === 'reject')   gradeClass = 'badge-grade-waste';
+
+            const qtyVal = parseFloat(item.available_qty || 0);
+            let qtyClass = 'qty-low';
+            if      (qtyVal > 50) qtyClass = 'qty-high';
+            else if (qtyVal > 0)  qtyClass = 'qty-medium';
+
+            listContainer.innerHTML += `
+            <div class="batch-item-card select-batch"
+                 data-batch-code="${item.batch_code}"
+                 data-grade="${item.grade || ''}"
+                 data-product-id="${item.product_id || ''}"
+                 data-unit="${item.unit || ''}">
+                <div class="batch-item-left">
+                    <div class="batch-item-title-row">
+                        <span class="batch-item-product">${item.product}</span>
+                        <span class="batch-item-code font-monospace">${item.batch_code}</span>
+                    </div>
+                    <div class="batch-item-subtitle-row">
+                        <span class="badge-premium-grade ${gradeClass}">${item.grade || 'N/A'}</span>
+                        <span class="batch-item-location text-muted"><i class="bi bi-geo-alt"></i> ${item.location}</span>
+                    </div>
+                </div>
+                <div class="batch-item-right">
+                    <div class="batch-item-qty-label">Available Qty</div>
+                    <span class="badge-premium-qty ${qtyClass}">${qtyVal.toFixed(2)} ${item.unit || ''}</span>
+                </div>
+            </div>`;
         });
+
+        // Quick client-side filter
+        if (filterInput && !filterInput.dataset.whListenerAttached) {
+            filterInput.dataset.whListenerAttached = 'true';
+            filterInput.addEventListener('input', function () {
+                const val = this.value.toLowerCase().trim();
+                listContainer.querySelectorAll('.batch-item-card').forEach(card => {
+                    card.classList.toggle('d-none', !card.textContent.toLowerCase().includes(val));
+                });
+            });
+        }
     })
-    .catch(err => console.error('Batch search failed:', err));
+    .catch(err => console.error('Warehouse batch search failed:', err));
 });
 
-document.querySelector('#batchCodeResults tbody')?.addEventListener('click', function (e) {
-    const btn = e.target.closest('.wh-select-batch, .select-batch');
-    if (btn && whCurrentBatchInput) {
-        const batchCode = btn.getAttribute('data-batch-code');
-        const grade = btn.getAttribute('data-grade');
-        
+// Delegated click handler on the card list container
+document.addEventListener('DOMContentLoaded', function () {
+    const listContainer = document.getElementById('batchCodeListResults');
+    if (!listContainer) return;
+
+    listContainer.addEventListener('click', function (e) {
+        const card = e.target.closest('.select-batch');
+        if (!card || !whCurrentBatchInput) return;
+
+        e.preventDefault();
+
+        const batchCode = card.getAttribute('data-batch-code');
+        const grade     = card.getAttribute('data-grade');
+
         whCurrentBatchInput.value = batchCode;
 
-        // Auto-select grade in the product row
+        // Auto-fill grade in the same table row
         const row = whCurrentBatchInput.closest('tr');
         if (row) {
             const gradeSelect = row.querySelector('.wh-item-grade');
-            if (gradeSelect && grade) {
-                gradeSelect.value = grade;
-            }
+            if (gradeSelect && grade) gradeSelect.value = grade;
         }
-    }
-});
 
+        // Close batch modal, return to sale modal
+        const modalEl = document.getElementById('staticBackdropBatchCode');
+        const modal   = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    });
+});
 
 // ── Edit sale record → open update payments modal ─────────────────────────────
 document.addEventListener('click', (e) => {

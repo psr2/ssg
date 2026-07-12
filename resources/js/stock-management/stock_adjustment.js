@@ -26,7 +26,6 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById('edit_unit').value = original.unit;
             document.getElementById('edit_remarks').value = this.dataset.remarks || '';
             document.getElementById('current_location').value = this.dataset.locationName || '';
-            document.getElementById('new_location').value = "";
 
             // Clear all previous field errors
             clearFieldErrors();
@@ -42,18 +41,15 @@ document.addEventListener("DOMContentLoaded", function() {
     function checkSubmitEnabled() {
         const newQuantity = parseFloat(document.getElementById('edit_quantity').value);
         const newUnit = document.getElementById('edit_unit').value;
-        const newLocation = document.getElementById('new_location').value;
 
         const quantityChanged = newQuantity !== original.quantity;
         const unitChanged = newUnit !== "" && newUnit !== original.unit;
-        const locationChanged = newLocation !== "" && newLocation !== original.locationId;
 
-        submitBtn.disabled = !(quantityChanged || unitChanged || locationChanged);
+        submitBtn.disabled = !(quantityChanged || unitChanged);
     }
 
     document.getElementById('edit_quantity').addEventListener('input', checkSubmitEnabled);
     document.getElementById('edit_unit').addEventListener('change', checkSubmitEnabled);
-    document.getElementById('new_location').addEventListener('change', checkSubmitEnabled);
 
     // Handle modal submit
     submitBtn.addEventListener('click', function() {
@@ -64,7 +60,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
         const newQuantity = parseFloat(document.getElementById('edit_quantity').value);
         const newUnit = document.getElementById('edit_unit').value;
-        const newLocationId = document.getElementById('new_location').value;
         const remarks = document.getElementById('edit_remarks').value;
         const batch = document.getElementById('edit_batch').value;
         const id = currentButton.dataset.id;
@@ -82,7 +77,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
         if (newQuantity !== originalQuantity) payload.quantity = newQuantity;
         if (newUnit && newUnit !== originalUnit) payload.unit = newUnit;
-        if (newLocationId && newLocationId !== originalLocationId) payload.new_location_id = newLocationId;
 
         // Clear previous errors
         clearFieldErrors();

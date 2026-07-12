@@ -1,1 +1,2 @@
-// Moved to Modules\StockLedger\Controllers\StockAdjustmentController
+<?php
+// Removed for rewrite
