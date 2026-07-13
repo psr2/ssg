@@ -44,23 +44,7 @@ class FleetBatchCodeRepository
                 'units.abbreviation as unit'
             );
 
-        // ── 3. Segregated child grades ────────────────────────────────────
-        $segQuery = DB::table('stock_segregations as ss')
-            ->join('stock_segregation_items as ssi', 'ss.id',          '=', 'ssi.stock_segregation_id')
-            ->join('products',                        'ss.product_id',  '=', 'products.id')
-            ->join('locations',                       'ss.location_id', '=', 'locations.id')
-            ->leftJoin('units', 'products.unit_id', '=', 'units.id')
-            ->select(
-                'ss.parent_batch_code as batch_code',
-                'ss.product_id',
-                'ss.location_id',
-                'ssi.grade',
-                'locations.name       as location',
-                'products.name        as product',
-                'units.abbreviation as unit'
-            );
-
-        // ── 4. Batches/grades that arrived via transfer ───────────────────
+        // ── 3. Batches/grades that arrived via transfer ───────────────────
         $transQuery = DB::table('stock_transfers as st')
             ->join('stock_transfer_items as sti', 'st.id',             '=', 'sti.stock_transfer_id')
             ->join('products',                     'sti.product_id',    '=', 'products.id')
@@ -77,7 +61,7 @@ class FleetBatchCodeRepository
             );
 
         // ── Apply optional filters ────────────────────────────────────────
-        foreach ([$whQuery, $shQuery, $segQuery, $transQuery] as $q) {
+        foreach ([$whQuery, $shQuery, $transQuery] as $q) {
             if (!empty($filters['product_listing'])) {
                 $q->where('products.id', $filters['product_listing']);
             }
@@ -88,7 +72,7 @@ class FleetBatchCodeRepository
 
         // ── Merge & deduplicate on composite key ──────────────────────────
         $allRows = [];
-        foreach ([$whQuery->get(), $shQuery->get(), $segQuery->get(), $transQuery->get()] as $rows) {
+        foreach ([$whQuery->get(), $shQuery->get(), $transQuery->get()] as $rows) {
             foreach ($rows as $row) {
                 if (!$row->batch_code || !$row->product_id || !$row->location_id || !$row->grade) {
                     continue;
@@ -100,7 +84,7 @@ class FleetBatchCodeRepository
         }
 
         // ── Compute real-time available qty ────────────────────────────────
-        $service = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+        $service = app(\Modules\StockLedger\Services\StockLedgerService::class);
 
         return collect(array_values($allRows))
             ->map(function ($item) use ($service) {

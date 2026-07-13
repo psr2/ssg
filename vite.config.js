@@ -45,8 +45,6 @@ export default defineConfig({
                 // Stock Management Module
                 'resources/js/stock-management/stock_transfer.js',
                 'resources/js/stock-management/batch-id.js',
-                'resources/js/stock-management/stock_adjustment.js',
-                'resources/js/stock-management/stock_segregation.js',
 
                 // Expenses Module
                 'resources/js/expenses/expense.js',

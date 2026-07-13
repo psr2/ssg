@@ -1,1 +1,1 @@
-{{-- Removed for rewrite --}}
+{{-- Removed --}}

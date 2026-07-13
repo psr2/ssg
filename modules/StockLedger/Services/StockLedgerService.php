@@ -88,39 +88,79 @@ class StockLedgerService
      */
     public function getAvailableStock(int $locationId, int $productId, string $batchCode, ?string $grade): float
     {
-        $latestUnit = $this->getLatestUnit($locationId, $productId, $batchCode, $grade);
+        $location = DB::table('locations')->where('id', $locationId)->first();
+        $isShop = $location && $location->type === 'shop';
 
-        // 1. Get base quantity from original purchase items matching location, product, batch, grade, and unit
-        $purchaseItems = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
-            'location_id' => $locationId,
-            'product'     => $productId,
-            'batch'       => $batchCode,
-            'unit'        => $latestUnit,
-        ])
-        ->when($grade, function($q) use ($grade) {
-            $q->where('grade', $grade);
-        })
-        ->get();
-
-        $baseQty = 0.00;
-        foreach ($purchaseItems as $item) {
-            $baseQty += (float)$item->quantity;
+        if ($isShop) {
+            $parentInventory = DB::table('shop_inventory')->where('shop_id', $locationId)
+                ->where('product_id', $productId)
+                ->where('batch_id', $batchCode)
+                ->first();
+        } else {
+            $parentInventory = DB::table('warehouse_inventory')->where('warehouse_id', $locationId)
+                ->where('product_id', $productId)
+                ->where('batch', $batchCode)
+                ->first();
         }
 
-        // 2. Sum up adjustments and voids for this unit and location
-        $adjustmentQty = (float)StockLedgerEntry::where([
-            'location_id'      => $locationId,
-            'product_id'       => $productId,
-            'batch_code'       => $batchCode,
-            'unit'             => $latestUnit,
-        ])
-        ->whereIn('transaction_type', ['ADJUSTMENT', 'VOID', 'TRANSFER_IN', 'TRANSFER_OUT'])
-        ->when($grade, function($q) use ($grade) {
-            $q->where('grade', $grade);
-        })
-        ->sum('quantity');
+        $baseQty = $parentInventory ? (float)$parentInventory->qty : 0.00;
 
-        return max(0.00, $baseQty + $adjustmentQty);
+        // 2. Subtract sold qty
+        $soldQty = DB::table('warehouse_sale_items')
+            ->join('warehouse_sales', 'warehouse_sales.id', '=', 'warehouse_sale_items.sale_id')
+            ->where('warehouse_sales.warehouse_id', $locationId)
+            ->where('warehouse_sale_items.product_id', $productId)
+            ->where('warehouse_sale_items.batch_code', $batchCode)
+            ->when($grade, function($q) use ($grade) {
+                $q->where('warehouse_sale_items.grade', $grade);
+            })
+            ->sum('warehouse_sale_items.quantity') ?? 0.00;
+
+        // 3. Subtract stock out qty
+        $stockOutQty = DB::table('stock_out_items')
+            ->join('master_stock_out', 'master_stock_out.id', '=', 'stock_out_items.stock_out_id')
+            ->where('master_stock_out.location_id', $locationId)
+            ->where('stock_out_items.product_id', $productId)
+            ->where('stock_out_items.batch_code', $batchCode)
+            ->when($grade, function($q) use ($grade) {
+                $q->where('stock_out_items.grade', $grade);
+            })
+            ->sum('stock_out_items.quantity') ?? 0.00;
+
+        // 4. Subtract transferred out qty
+        $transferredOutQty = DB::table('stock_transfer_items')
+            ->join('stock_transfers', 'stock_transfers.id', '=', 'stock_transfer_items.stock_transfer_id')
+            ->where('stock_transfers.from_location_id', $locationId)
+            ->where('stock_transfer_items.product_id', $productId)
+            ->where('stock_transfer_items.batch_code', $batchCode)
+            ->when($grade, function($q) use ($grade) {
+                $q->where('stock_transfer_items.grade', $grade);
+            })
+            ->sum('stock_transfer_items.quantity') ?? 0.00;
+
+        // 5. Add transferred in qty
+        $transferredInQty = DB::table('stock_transfer_items')
+            ->join('stock_transfers', 'stock_transfers.id', '=', 'stock_transfer_items.stock_transfer_id')
+            ->where('stock_transfers.to_location_id', $locationId)
+            ->where('stock_transfer_items.product_id', $productId)
+            ->where('stock_transfer_items.batch_code', $batchCode)
+            ->when($grade, function($q) use ($grade) {
+                $q->where('stock_transfer_items.grade', $grade);
+            })
+            ->sum('stock_transfer_items.quantity') ?? 0.00;
+
+        // 6. Add ledger adjustments & voids
+        $adjustmentQty = DB::table('stock_ledger_entries')
+            ->where('location_id', $locationId)
+            ->where('product_id', $productId)
+            ->where('batch_code', $batchCode)
+            ->when($grade, function($q) use ($grade) {
+                $q->where('grade', $grade);
+            })
+            ->whereIn('transaction_type', ['ADJUSTMENT', 'VOID'])
+            ->sum('quantity') ?? 0.00;
+
+        return max(0.00, (float)($baseQty + $transferredInQty - $soldQty - $stockOutQty - $transferredOutQty + $adjustmentQty));
     }
 
     /**
@@ -136,14 +176,7 @@ class StockLedgerService
             })
             ->exists();
 
-        $segregationsExist = DB::table('stock_segregation_items')
-            ->join('stock_segregations', 'stock_segregations.id', '=', 'stock_segregation_items.stock_segregation_id')
-            ->where('stock_segregations.parent_batch_code', $batchCode)
-            ->where('stock_segregations.product_id', $productId)
-            ->when($grade, function($q) use ($grade) {
-                $q->where('stock_segregation_items.grade', $grade);
-            })
-            ->exists();
+        $segregationsExist = false;
 
         $salesExist = DB::table('warehouse_sale_items')
             ->where('batch_code', $batchCode)

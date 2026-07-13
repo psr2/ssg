@@ -136,7 +136,7 @@ class WarehouseSaleRequest extends FormRequest
 
         Log::debug("validateWarehouseStock: warehouseId = {$warehouseId}");
 
-        $segregationService = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+        $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
 
         foreach ($items as $index => $item) {
             $productId    = $item['product'] ?? null;
@@ -157,7 +157,7 @@ class WarehouseSaleRequest extends FormRequest
             Log::debug("Warehouse ID: " . $warehouseId);
 
             try {
-                $availableQty = $segregationService->getAvailableStock($warehouseId, $productId, $batchCode, $grade);
+                $availableQty = $ledgerService->getAvailableStock($warehouseId, $productId, $batchCode, $grade);
             } catch (\Exception $e) {
                 Log::error("Error calculating dynamic stock: " . $e->getMessage());
                 $availableQty = 0.00;

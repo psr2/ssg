@@ -5,17 +5,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        // No-op: Stock Adjustments module has been removed
-    }
+    public function up(): void {}
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('stock_adjustments');

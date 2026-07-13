@@ -152,7 +152,7 @@ class StockOutRequest extends FormRequest
                     return;
                 }
 
-                $service = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+                $service = app(\Modules\StockLedger\Services\StockLedgerService::class);
                 $available = $service->getAvailableStock((int)$locationId, (int)$productId, $batchCode, $grade);
 
                 if ($available < $value) {

@@ -71,7 +71,7 @@
                     </ul>
                 </li>
 
-                <li class="menu-item {{ request()->is('stock-movements') || request()->is('stock-transfer') || request()->is('stock-segregation') ? 'active' : '' }}">
+                <li class="menu-item {{ request()->is('stock-movements') || request()->is('stock-transfer') ? 'active' : '' }}">
                     <div class="menu-title">
                         <i class="bi bi-box-seam"></i>&nbsp;Stock Management
                         <i class="bi bi-caret-down"></i>
@@ -79,7 +79,6 @@
                     <ul class="submenu">
                         <li><a href="/stock-movements"><i class="bi bi-arrow-down-up"></i> Stock In/Out</a></li>
                         <li><a href="/stock-transfer"><i class="bi bi-arrow-left-right"></i> Internal Transfer</a></li>
-                        <li><a href="/stock-segregation"><i class="bi bi-diagram-3"></i> Stock Segregation</a></li>
                     </ul>
                 </li>
 

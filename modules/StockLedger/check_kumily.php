@@ -57,9 +57,9 @@ foreach ($entries as $row) {
     echo "- Tx ID: {$row->id}, Type: {$row->transaction_type}, Product ID: {$row->product_id}, Batch: {$row->batch_code}, Grade: {$row->grade}, Qty: {$row->quantity}, Unit: {$row->unit}\n";
 }
 
-// 5. Run StockSegregationService availability check
-echo "\nRunning StockSegregationService::getAvailableStock for Kumily:\n";
-$segService = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+// 5. Run StockLedgerService availability check
+echo "\nRunning StockLedgerService::getAvailableStock for Kumily:\n";
+$ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
 // Get all unique product/batch/grade combinations in ledger for this location
 $combinations = DB::table('stock_ledger_entries')
     ->where('location_id', $kumilyId)
@@ -68,7 +68,7 @@ $combinations = DB::table('stock_ledger_entries')
     ->get();
 
 foreach ($combinations as $c) {
-    $qty = $segService->getAvailableStock($kumilyId, $c->product_id, $c->batch_code, $c->grade);
+    $qty = $ledgerService->getAvailableStock($kumilyId, $c->product_id, $c->batch_code, $c->grade);
     echo "- Product ID: {$c->product_id}, Batch: {$c->batch_code}, Grade: {$c->grade} => Available: {$qty}\n";
 }
 

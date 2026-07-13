@@ -3,15 +3,15 @@
 namespace Modules\Dashboard\Services\Dashboard;
 
 use Illuminate\Support\Facades\DB;
-use Modules\StockManagement\Services\StockSegregation\StockSegregationService;
+use Modules\StockLedger\Services\StockLedgerService;
 
 class StockLedgerSummary
 {
-    protected StockSegregationService $segregationService;
+    protected StockLedgerService $ledgerService;
 
-    public function __construct(StockSegregationService $segregationService)
+    public function __construct(StockLedgerService $ledgerService)
     {
-        $this->segregationService = $segregationService;
+        $this->ledgerService = $ledgerService;
     }
 
     /**
@@ -33,11 +33,6 @@ class StockLedgerSummary
             ->select('shop_id as location_id', 'product_id', 'batch_id as batch_code', 'grade')
             ->distinct()->get();
 
-        $segCombos = DB::table('stock_segregations')
-            ->join('stock_segregation_items', 'stock_segregations.id', '=', 'stock_segregation_items.stock_segregation_id')
-            ->select('stock_segregations.location_id', 'stock_segregations.product_id', 'stock_segregations.parent_batch_code as batch_code', 'stock_segregation_items.grade')
-            ->distinct()->get();
-
         $transSourceCombos = DB::table('stock_transfers')
             ->join('stock_transfer_items', 'stock_transfers.id', '=', 'stock_transfer_items.stock_transfer_id')
             ->select('stock_transfers.from_location_id as location_id', 'stock_transfer_items.product_id', 'stock_transfer_items.batch_code', 'stock_transfer_items.grade')
@@ -49,7 +44,7 @@ class StockLedgerSummary
             ->distinct()->get();
 
         $allCombos = [];
-        foreach ([$whCombos, $shCombos, $segCombos, $transSourceCombos, $transDestCombos] as $combos) {
+        foreach ([$whCombos, $shCombos, $transSourceCombos, $transDestCombos] as $combos) {
             foreach ($combos as $c) {
                 if (!$c->location_id || !$c->product_id || !$c->batch_code || !$c->grade) {
                     continue;
@@ -94,7 +89,7 @@ class StockLedgerSummary
                 continue;
             }
 
-            $available = $this->segregationService->getAvailableStock($lId, $pId, $combo['batch_code'], $combo['grade']);
+            $available = $this->ledgerService->getAvailableStock($lId, $pId, $combo['batch_code'], $combo['grade']);
 
             // Setup key for stock alerts
             $pairs["{$pId}_{$lId}"] = [

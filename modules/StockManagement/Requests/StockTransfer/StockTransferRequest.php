@@ -103,10 +103,10 @@ class StockTransferRequest extends FormRequest
         $requestedQty = floatval($this->input('t_quantity', 0));
 
         if ($fromLocation && $productId && $batchCode && $grade) {
-            $segregationService = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+            $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
             
             try {
-                $availableQty = $segregationService->getAvailableStock(
+                $availableQty = $ledgerService->getAvailableStock(
                     (int) $fromLocation,
                     (int) $productId,
                     $batchCode,

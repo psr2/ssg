@@ -75,20 +75,6 @@ class WarehouseOverview extends Controller
                 'u.abbreviation as unit',
             ])->get();
 
-        $segCombos = \Illuminate\Support\Facades\DB::table('stock_segregations as ss')
-            ->join('stock_segregation_items as ssi', 'ss.id', '=', 'ssi.stock_segregation_id')
-            ->join('products as p', 'ss.product_id', '=', 'p.id')
-            ->leftJoin('units as u', 'p.unit_id', '=', 'u.id')
-            ->where('ss.location_id', $warehouseId)
-            ->select([
-                'ss.parent_batch_code as batch_code',
-                'ss.product_id',
-                'ssi.grade',
-                'p.name as product_name',
-                'p.sku as product_sku',
-                'u.abbreviation as unit',
-            ])->get();
-
         $transCombos = \Illuminate\Support\Facades\DB::table('stock_transfers as st')
             ->join('stock_transfer_items as sti', 'st.id', '=', 'sti.stock_transfer_id')
             ->join('products as p', 'sti.product_id', '=', 'p.id')
@@ -104,7 +90,7 @@ class WarehouseOverview extends Controller
             ])->get();
 
         $allCombos = [];
-        foreach ([$whCombos, $segCombos, $transCombos] as $combos) {
+        foreach ([$whCombos, $transCombos] as $combos) {
             foreach ($combos as $c) {
                 if (!$c->batch_code || !$c->product_id) {
                     continue;
@@ -125,7 +111,7 @@ class WarehouseOverview extends Controller
         }
 
         // 2. Compute dynamic available quantities & resolve unit cost
-        $service = app(\Modules\StockManagement\Services\StockSegregation\StockSegregationService::class);
+        $service = app(\Modules\StockLedger\Services\StockLedgerService::class);
         $results = [];
 
         foreach ($allCombos as $key => $combo) {
@@ -137,26 +123,15 @@ class WarehouseOverview extends Controller
             );
 
             // Fetch unit cost hierarchy:
-            // a. Check stock_segregation_items
-            $unitCost = \Illuminate\Support\Facades\DB::table('stock_segregations as ss')
-                ->join('stock_segregation_items as ssi', 'ss.id', '=', 'ssi.stock_segregation_id')
-                ->where('ss.location_id', $warehouseId)
-                ->where('ss.product_id', $combo['product_id'])
-                ->where('ss.parent_batch_code', $combo['batch_code'])
-                ->where('ssi.grade', $combo['grade'])
-                ->value('ssi.unit_cost');
+            // a. Check warehouse_inventory
+            $unitCost = \Illuminate\Support\Facades\DB::table('warehouse_inventory')
+                ->where('warehouse_id', $warehouseId)
+                ->where('product_id', $combo['product_id'])
+                ->where('batch', $combo['batch_code'])
+                ->value('unit_cost');
 
             if ($unitCost === null) {
-                // b. Check warehouse_inventory
-                $unitCost = \Illuminate\Support\Facades\DB::table('warehouse_inventory')
-                    ->where('warehouse_id', $warehouseId)
-                    ->where('product_id', $combo['product_id'])
-                    ->where('batch', $combo['batch_code'])
-                    ->value('unit_cost');
-            }
-
-            if ($unitCost === null) {
-                // c. Check stock_purchase_items
+                // b. Check stock_purchase_items
                 $unitCost = \Illuminate\Support\Facades\DB::table('stock_purchase_items')
                     ->where('location_id', $warehouseId)
                     ->where('product', $combo['product_id'])
