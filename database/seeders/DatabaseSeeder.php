@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             ProductsTableSeeder::class,
             LocationsTableSeeder::class,
             ProductGradesTableSeeder::class,
+            \Modules\StockManagement\Database\Seeders\StockInTableSeeder::class,
         ]);
     }
 }

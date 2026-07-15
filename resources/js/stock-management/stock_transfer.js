@@ -125,6 +125,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 const gradeSelect = document.getElementById('t_grade');
                 if (gradeSelect && grade) {
                     gradeSelect.value = grade;
+                    if (!gradeSelect.value || gradeSelect.selectedIndex <= 0) {
+                        const opt = Array.from(gradeSelect.options).find(o => 
+                            o.text.trim().toLowerCase() === grade.toLowerCase() || 
+                            o.value.trim().toLowerCase() === grade.toLowerCase()
+                        );
+                        if (opt) gradeSelect.value = opt.value;
+                    }
                 }
                 
                 const productSelect = document.getElementById('t_product_name');

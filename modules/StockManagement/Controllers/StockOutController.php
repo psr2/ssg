@@ -31,7 +31,7 @@ class StockOutController extends Controller
     */
    public function searchBatches(Request $request, \Modules\StockManagement\Repositories\BatchCode\BatchCodeRepository $repo)
    {
-       $results = $repo->searchPhysicalStock($request->all());
+       $results = $repo->search($request->all());
        return response()->json($results);
    }
 }

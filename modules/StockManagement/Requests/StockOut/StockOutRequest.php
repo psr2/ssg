@@ -35,6 +35,7 @@ class StockOutRequest extends FormRequest
             'movement_date'    => 'required|date',
             'destination'      => 'required|string',
             'out_type'         => 'required|string',
+            'remarks'          => 'nullable|string|max:1000',
 
 
             // Dynamic product rows 

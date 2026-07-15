@@ -428,7 +428,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const row = whCurrentBatchInput.closest('tr');
         if (row) {
             const gradeSelect = row.querySelector('.wh-item-grade');
-            if (gradeSelect && grade) gradeSelect.value = grade;
+            if (gradeSelect && grade) {
+                gradeSelect.value = grade;
+                if (!gradeSelect.value || gradeSelect.selectedIndex <= 0) {
+                    const opt = Array.from(gradeSelect.options).find(o => 
+                        o.text.trim().toLowerCase() === grade.toLowerCase() || 
+                        o.value.trim().toLowerCase() === grade.toLowerCase()
+                    );
+                    if (opt) gradeSelect.value = opt.value;
+                }
+            }
         }
 
         // Close batch modal, return to sale modal

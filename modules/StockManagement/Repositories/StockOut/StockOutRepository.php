@@ -9,6 +9,10 @@ use Modules\StockManagement\Models\StockOut\StockOutItem;
 
 class StockOutRepository
 {
+    public function __construct(
+        protected \Modules\StockLedger\Services\StockLedgerService $ledgerService
+    ) {}
+
     /**
      * Create master stock out + items in DB
      */
@@ -40,6 +44,21 @@ class StockOutRepository
                     'stock_purchase_item_id' => $purchaseItem ? $purchaseItem->id : null,
                     'grade'      => $item['grade'] ?? null,
                     'batch_code' => $item['batch_code'] ?? null,
+                ]);
+
+                // Record negative ledger entry for Stock Out
+                $this->ledgerService->recordEntry([
+                    'transaction_type' => 'STOCK_OUT',
+                    'location_id'      => $item['location_id'],
+                    'product_id'       => $item['product_id'],
+                    'batch_code'       => $item['batch_code'],
+                    'grade'            => $item['grade'] ?? null,
+                    'quantity'         => -$item['quantity'], // Negative quantity
+                    'unit'             => $item['unit'],
+                    'unit_cost'        => $item['unit_cost'] ?? 0.00,
+                    'reference_id'     => $master->id,
+                    'reference_type'   => 'master_stock_out',
+                    'remarks'          => $data['remarks'] ?? $item['remarks'] ?? null,
                 ]);
             }
 

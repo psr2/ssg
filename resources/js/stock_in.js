@@ -590,25 +590,68 @@ document.getElementById('batchCodeSearchForm').addEventListener('submit', functi
         .catch(error => console.error("Search failed:", error));
 });
 
+// Track which batch code input triggered the modal
+let currentBatchInput = null;
+
+document.addEventListener('click', function (e) {
+    if (e.target && e.target.closest('#batch_code_wrapper')) {
+        const wrapper = e.target.closest('#batch_code_wrapper');
+        const input = wrapper.querySelector('input');
+        if (input) {
+            currentBatchInput = input;
+
+            const row = wrapper.closest('.product-row');
+            if (row) {
+                const productSelect = row.querySelector("select[name='products[][product]']");
+                const productId = productSelect ? productSelect.value : '';
+
+                const locationSelect = row.querySelector("select[id='location_id']") || row.querySelector("#location_id");
+                const locationId = locationSelect ? locationSelect.value : '';
+
+                const modalProductSelect = document.querySelector('#batchCodeSearchForm select[name="product_listing"]');
+                const modalLocationSelect = document.querySelector('#batchCodeSearchForm select[name="location"]');
+
+                if (modalProductSelect && productId) modalProductSelect.value = productId;
+                if (modalLocationSelect && locationId) modalLocationSelect.value = locationId;
+
+                // Clear previous results
+                const listContainer = document.getElementById('batchCodeListResults');
+                if (listContainer) listContainer.innerHTML = '';
+
+                // Auto-trigger search if both product and location are ready
+                if (modalProductSelect && modalLocationSelect && productId && locationId) {
+                    setTimeout(() => {
+                        document.getElementById('search_batch_code')?.click();
+                    }, 100);
+                }
+            }
+        }
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function () {
     const listContainer = document.getElementById('batchCodeListResults');
     if (!listContainer) return;
 
     listContainer.addEventListener('click', function (e) {
         const card = e.target.closest('.select-batch');
-        if (card) {
+        if (card && currentBatchInput) {
             e.preventDefault();
             const batchCode = card.getAttribute('data-batch-code');
             const grade = card.getAttribute('data-grade');
-            const batchCodeInput = document.getElementById('batch_code');
 
-            if (batchCodeInput) {
-                batchCodeInput.value = batchCode;
-                const row = batchCodeInput.closest('.product-row');
-                if (row) {
-                    const gradeSelect = row.querySelector("select[name='products[][grade]']");
-                    if (gradeSelect && grade) {
-                        gradeSelect.value = grade;
+            currentBatchInput.value = batchCode;
+            const row = currentBatchInput.closest('.product-row');
+            if (row) {
+                const gradeSelect = row.querySelector("select[name='products[][grade]']");
+                if (gradeSelect && grade) {
+                    gradeSelect.value = grade;
+                    if (!gradeSelect.value || gradeSelect.selectedIndex <= 0) {
+                        const opt = Array.from(gradeSelect.options).find(o => 
+                            o.text.trim().toLowerCase() === grade.toLowerCase() || 
+                            o.value.trim().toLowerCase() === grade.toLowerCase()
+                        );
+                        if (opt) gradeSelect.value = opt.value;
                     }
                 }
             }

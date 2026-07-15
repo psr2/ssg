@@ -45,6 +45,10 @@ class StockPurchaseRepository
 
     private int $stockPurchaseId;
 
+    public function __construct(
+        protected \Modules\StockLedger\Services\StockLedgerService $ledgerService
+    ) {}
+
     /**
      * Sets the dynamic items in the validated data from the services
      */
@@ -132,34 +136,20 @@ class StockPurchaseRepository
                 'remarks'              => $item['remarks'] ?? null,
             ]);
 
-            StockSummary::create([
-                'product_id' => $item['product_id'],
-                'location_id' => $item['location_id'],
-                'batch_id' => $item['batch_code'],
-                'current_qty' => $item['quantity'],
-                'reserved_qty' => 0.00,
-                'unit' => $item['unit'],
-                'grade' => $item['grade']
+            // Call Centralized Ledger Entry which logs and syncs all balance tables
+            $this->ledgerService->recordEntry([
+                'transaction_type' => 'PURCHASE',
+                'location_id'      => $item['location_id'],
+                'product_id'       => $item['product_id'],
+                'batch_code'       => $item['batch_code'],
+                'grade'            => $item['grade'] ?? null,
+                'quantity'         => $item['quantity'],
+                'unit'             => $item['unit'],
+                'unit_cost'        => $item['unit_cost'],
+                'reference_id'     => $this->stockPurchaseId,
+                'reference_type'   => 'stock_purchases',
+                'remarks'          => $item['remarks'] ?? null,
             ]);
-
-            $location = strtolower($item['location_name']);
-
-            Log::debug("Location name is" . $location);
-
-            if (!$location) {
-                Log::warning("Invalid location name: {$item['location_name']} in StockPurchaseRepository");
-                throw new StockPurchaseException("Invalid location name");
-            }
-
-            switch ($location) {
-                case "warehouse":
-                    $this->createWarehouseInventory($item);
-                    break;
-
-                case "shop":
-                    $this->createShopInventory($item);
-                    break;
-            }
 
         }
     }

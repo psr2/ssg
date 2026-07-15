@@ -17,6 +17,8 @@ use Modules\Warehouse\Enums\PaymentMethod;
 
 class WarehouseSaleRepository
 {
+    public function __construct(protected \Modules\StockLedger\Services\StockLedgerService $ledgerService) {}
+
     /**
      * Handle the full warehouse sale transaction atomically.
      *
@@ -47,9 +49,9 @@ class WarehouseSaleRepository
                 'due_amount'   => $grandTotal - ($payload['amount_paid'] ?? 0),
             ]);
 
-            // 3. Create sale line items
+            // 3. Create sale line items and record ledger entries
             foreach ($payload['items'] as $item) {
-                WarehouseSaleItem::create([
+                $saleItem = WarehouseSaleItem::create([
                     'sale_id'      => $sale->id,
                     'product_id'   => $item['product'],
                     'product_name' => '',
@@ -59,6 +61,34 @@ class WarehouseSaleRepository
                     'unit'         => $item['unit'],
                     'unit_price'   => $item['unit_price'],
                     'total_price'  => $item['total_price'],
+                ]);
+
+                // Look up original purchase item's unit_cost for COGS/ledger
+                $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                    'location_id' => $sale->warehouse_id,
+                    'product'     => $saleItem->product_id,
+                    'batch'       => $saleItem->batch_code,
+                ])
+                ->when($saleItem->grade, function($q) use ($saleItem) {
+                    $q->where('grade', $saleItem->grade);
+                })
+                ->first();
+
+                $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
+
+                // Record SALE ledger entry
+                $this->ledgerService->recordEntry([
+                    'transaction_type' => 'SALE',
+                    'location_id'      => (int) $sale->warehouse_id,
+                    'product_id'       => (int) $saleItem->product_id,
+                    'batch_code'       => $saleItem->batch_code,
+                    'grade'            => $saleItem->grade,
+                    'quantity'         => -$saleItem->quantity, // Negative delta
+                    'unit'             => $saleItem->unit,
+                    'unit_cost'        => $unitCost,
+                    'reference_id'     => $saleItem->id,
+                    'reference_type'   => get_class($saleItem),
+                    'remarks'          => "Warehouse Sale #{$sale->id}",
                 ]);
             }
 
@@ -131,6 +161,36 @@ class WarehouseSaleRepository
 
             if (!$sale) {
                 throw new WarehouseSaleFailedException("Sale not found or already deleted.");
+            }
+
+            // Create compensating (reversal) ledger entries for each item
+            foreach ($sale->items as $saleItem) {
+                $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                    'location_id' => $sale->warehouse_id,
+                    'product'     => $saleItem->product_id,
+                    'batch'       => $saleItem->batch_code,
+                ])
+                ->when($saleItem->grade, function($q) use ($saleItem) {
+                    $q->where('grade', $saleItem->grade);
+                })
+                ->first();
+
+                $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
+
+                // Log SALE_RETURN with positive quantity delta
+                $this->ledgerService->recordEntry([
+                    'transaction_type' => 'SALE_RETURN',
+                    'location_id'      => (int) $sale->warehouse_id,
+                    'product_id'       => (int) $saleItem->product_id,
+                    'batch_code'       => $saleItem->batch_code,
+                    'grade'            => $saleItem->grade,
+                    'quantity'         => (float) $saleItem->quantity, // Positive delta to restore stock
+                    'unit'             => $saleItem->unit,
+                    'unit_cost'        => $unitCost,
+                    'reference_id'     => $saleItem->id,
+                    'reference_type'   => get_class($saleItem),
+                    'remarks'          => "Warehouse Sale Reversal #{$sale->id}",
+                ]);
             }
 
             // Delete associated payments

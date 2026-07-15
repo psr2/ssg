@@ -174,7 +174,21 @@ class StockInTest extends TestCase
             'grade' => $grade->name,
         ]);
 
-        // Assert WarehouseInventory entry
+        // Assert StockLedgerEntry entry
+        $this->assertDatabaseHas('stock_ledger_entries', [
+            'transaction_type' => 'PURCHASE',
+            'location_id' => $location->id,
+            'product_id' => $product->id,
+            'batch_code' => $batchCode,
+            'grade' => $grade->name,
+            'quantity' => 150.50,
+            'unit' => 'Kg',
+            'unit_cost' => 12.00,
+            'reference_id' => $stockPurchase->id,
+            'reference_type' => 'stock_purchases',
+        ]);
+
+        // Assert WarehouseInventory entry (synced by ledger service)
         $this->assertDatabaseHas('warehouse_inventory', [
             'warehouse_id' => $location->id,
             'batch' => $batchCode,

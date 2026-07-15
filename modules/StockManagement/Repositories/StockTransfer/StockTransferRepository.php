@@ -59,6 +59,19 @@ class StockTransferRepository
                     'unit'              => $payload['t_unit'],
                 ]);
 
+                // Look up unit cost of original batch
+                $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                    'location_id' => $payload['t_fromLocation'],
+                    'product'     => $item->product_id,
+                    'batch'       => $item->batch_code,
+                ])
+                ->when($item->grade, function($q) use ($item) {
+                    $q->where('grade', $item->grade);
+                })
+                ->first();
+
+                $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
+
                 // 3. Record entries in the StockLedger
                 $this->ledgerService->recordEntry([
                     'transaction_type' => 'TRANSFER_OUT',
@@ -68,6 +81,7 @@ class StockTransferRepository
                     'grade'            => $item->grade,
                     'quantity'         => -$item->quantity,
                     'unit'             => $item->unit,
+                    'unit_cost'        => $unitCost,
                     'reference_id'     => $item->id,
                     'reference_type'   => get_class($item),
                     'remarks'          => $transfer->remarks ?? 'Stock transferred out',
@@ -81,6 +95,7 @@ class StockTransferRepository
                     'grade'            => $item->grade,
                     'quantity'         => $item->quantity,
                     'unit'             => $item->unit,
+                    'unit_cost'        => $unitCost,
                     'reference_id'     => $item->id,
                     'reference_type'   => get_class($item),
                     'remarks'          => $transfer->remarks ?? 'Stock transferred in',

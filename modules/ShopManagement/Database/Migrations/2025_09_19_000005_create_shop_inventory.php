@@ -17,7 +17,7 @@ return new class extends Migration
 
 
             $table->string('batch_id');   // link to warehouse batch
-            $table->integer('grade')->default(null);              
+            $table->string('grade')->nullable();
             $table->unsignedBigInteger('product_id');      // product/item reference
 
             $table->decimal('qty', 12, 2)->default(0);     // current available qty in shop

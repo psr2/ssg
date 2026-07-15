@@ -74,11 +74,12 @@ class FleetBatchCodeRepository
         $allRows = [];
         foreach ([$whQuery->get(), $shQuery->get(), $transQuery->get()] as $rows) {
             foreach ($rows as $row) {
-                if (!$row->batch_code || !$row->product_id || !$row->location_id || !$row->grade) {
+                if (!$row->batch_code || !$row->product_id || !$row->location_id) {
                     continue;
                 }
 
-                $key = "{$row->location_id}_{$row->product_id}_{$row->batch_code}_{$row->grade}";
+                $grade = $row->grade ?? '';
+                $key = "{$row->location_id}_{$row->product_id}_{$row->batch_code}_{$grade}";
                 $allRows[$key] = $row;
             }
         }
