@@ -1,1 +1,1 @@
-{{-- Removed --}}
+<!-- Removed - moved to Modules\StockAdjustment -->

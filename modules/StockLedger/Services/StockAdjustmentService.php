@@ -1,2 +1,2 @@
-"<?php\n\nnamespace Modules\\StockLedger\\Services;\n\nuse Illuminate\\Support\\Facades\\DB;\nuse Modules\\StockLedger\\Models\\StockAdjustment\\StockAdjustment;\nuse Modules\\StockLedger\\Services\\StockLedgerService;\nuse Modules\\StockManagement\\Models
-<truncated 5549 bytes>
+<?php
+// Removed - moved to Modules\StockAdjustment

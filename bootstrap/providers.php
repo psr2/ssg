@@ -11,7 +11,9 @@ return [
     Modules\Locations\BootstrapLocationManagementProvider::class,
     Modules\StockManagement\BootstrapStockManagementProvider::class,
     Modules\StockLedger\BootstrapStockLedgerProvider::class,
+    Modules\StockAdjustment\BootstrapStockAdjustmentProvider::class,
     Modules\ShopManagement\BootstrapShopManagementProvider::class,
     Modules\Warehouse\BootstrapWarehouseManagementProvider::class,
-    Modules\Expenses\BootstrapExpenseServiceProvider::class
+    Modules\Expenses\BootstrapExpenseServiceProvider::class,
+    Modules\Billing\BootstrapBillingProvider::class
 ];

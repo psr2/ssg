@@ -71,7 +71,7 @@
                     </ul>
                 </li>
 
-                <li class="menu-item {{ request()->is('stock-movements') || request()->is('stock-transfer') ? 'active' : '' }}">
+                <li class="menu-item {{ request()->is('stock-movements') || request()->is('stock-transfer') || request()->is('stock-adjustments') ? 'active' : '' }}">
                     <div class="menu-title">
                         <i class="bi bi-box-seam"></i>&nbsp;Stock Management
                         <i class="bi bi-caret-down"></i>
@@ -79,6 +79,7 @@
                     <ul class="submenu">
                         <li><a href="/stock-movements"><i class="bi bi-arrow-down-up"></i> Stock In/Out</a></li>
                         <li><a href="/stock-transfer"><i class="bi bi-arrow-left-right"></i> Internal Transfer</a></li>
+                        <li><a href="/stock-adjustments"><i class="bi bi-sliders"></i> Stock Adjustment</a></li>
                     </ul>
                 </li>
 
@@ -116,6 +117,16 @@
                         <li><a href="/warehouse/sale"><i class="bi bi-cart-plus"></i> Sales</a></li>
                         <li><a href="/warehouse/overview"><i class="bi bi-speedometer2"></i> Overview</a></li>
                         <li><a href="/warehouse/credits"><i class="bi bi-credit-card"></i> Credit Details</a></li>
+                    </ul>
+                </li>
+
+                <li class="menu-item {{ request()->is('billing-adjustments') ? 'active' : '' }}">
+                    <div class="menu-title">
+                        <i class="bi bi-wallet2"></i>&nbsp;Billing
+                        <i class="bi bi-caret-down"></i>
+                    </div>
+                    <ul class="submenu">
+                        <li><a href="/billing-adjustments"><i class="bi bi-sliders2"></i> Billing Adjustment</a></li>
                     </ul>
                 </li>
 

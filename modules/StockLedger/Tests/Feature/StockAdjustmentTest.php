@@ -6,7 +6,10 @@ use Tests\TestCase;
 
 class StockAdjustmentTest extends TestCase
 {
-    public function test_no_op(): void
+    /**
+     * Legacy stub test to prevent PHPUnit scanning warnings.
+     */
+    public function test_legacy_stub(): void
     {
         $this->assertTrue(true);
     }

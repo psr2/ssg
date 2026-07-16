@@ -1,2 +1,2 @@
 <?php
-// Removed
+// Removed - moved to Modules\StockAdjustment
