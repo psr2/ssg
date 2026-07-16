@@ -25,6 +25,14 @@ class WarehouseSale extends Model
         'due_amount'   => 'decimal:2',
     ];
 
+    protected $with = [
+        'customer',
+        'warehouse',
+        'items.product',
+        'items.gradeRelation',
+        'items.unitRelation',
+    ];
+
     public function customer()
     {
         return $this->belongsTo(WarehouseCustomer::class, 'customer_id');

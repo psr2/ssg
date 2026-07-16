@@ -20,4 +20,9 @@ class StockPurchase extends Model
     {
         return $this->belongsTo(MasterStockIn::class, 'master_stock_in_id');
     }
+
+    public function purchaseItems()
+    {
+        return $this->hasMany(StockPurchaseItem::class, 'stock_in_purchase_id');
+    }
 }

@@ -16,6 +16,9 @@
 
 
         </testsuite>
+        <testsuite name="Workflow">
+            <directory>tests/Workflow</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

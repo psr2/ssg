@@ -159,9 +159,14 @@ class StockPurchaseRepository
 
     private function masterEntry(array $data): void
     {
+        $inType = $data['in_type'];
+        if ($inType === 'return') {
+            $inType = 'return_customer';
+        }
+
         $master = MasterRecord::create([
             'reference_number'     => $data['reference_no'],
-            'stock_in_type'        => $data['in_type'],
+            'stock_in_type'        => $inType,
             'stock_movement_type'  => $data['stock_type'],
             'stock_in_date'        => $data['movement_date'],
         ]);

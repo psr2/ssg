@@ -333,7 +333,12 @@ async function stockPurchase(payload, stockType, form) {
             // Field-level errors
             for (const key in result.errors) {
                 if (!key.startsWith('items')) {
-                    const errorElement = document.getElementById(`error-${key}`);
+                    let elementId = key;
+                    if (key === 'stock_type') elementId = 'movementType';
+                    else if (key === 'reference_no') elementId = 'referenceNo';
+                    else if (key === 'in_type') elementId = 'in_type';
+                    
+                    const errorElement = document.getElementById(`error-${elementId}`);
                     if (errorElement) {
                         errorElement.textContent = result.errors[key][0];
                     }
@@ -343,7 +348,10 @@ async function stockPurchase(payload, stockType, form) {
             Object.entries(result.errors).forEach(([key, messages]) => {
                 const match = key.match(/^items\.(\d+)\.(\w+)$/);
                 if (match) {
-                    const [_, rowIndex, field] = match;
+                    let [_, rowIndex, field] = match;
+                    if (field === 'product_id' || field === 'product_name') {
+                        field = 'product';
+                    }
                     const row = document.querySelectorAll(".product-row")[rowIndex];
                     if (row) {
                         const errorSpan = row.querySelector(`.error-${field}`);
@@ -430,7 +438,12 @@ async function processStockOut(form) {
             // Handle top-level (non-item-specific) errors
             for (const key in result.errors) {
                 if (!key.startsWith('items')) {
-                    const errorElement = document.getElementById(`error-${key}`);
+                    let elementId = key;
+                    if (key === 'stock_type') elementId = 'movementType';
+                    else if (key === 'reference_no') elementId = 'referenceNo';
+                    else if (key === 'out_type') elementId = 'outType';
+                    
+                    const errorElement = document.getElementById(`error-${elementId}`);
                     if (errorElement) {
                         errorElement.textContent = result.errors[key][0];
                     }
@@ -441,7 +454,10 @@ async function processStockOut(form) {
             Object.entries(result.errors).forEach(([key, messages]) => {
                 const match = key.match(/^items\.(\d+)\.(\w+)$/);
                 if (match) {
-                    const [_, rowIndex, field] = match;
+                    let [_, rowIndex, field] = match;
+                    if (field === 'product_id' || field === 'product_name') {
+                        field = 'product';
+                    }
                     const row = document.querySelectorAll(".product-row")[rowIndex];
                     if (row) {
                         const errorSpan = row.querySelector(`.error-${field}`);

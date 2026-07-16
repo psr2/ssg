@@ -36,4 +36,14 @@ class WarehouseSaleItem extends Model
     {
         return $this->belongsTo(Products::class, 'product_id');
     }
+
+    public function gradeRelation()
+    {
+        return $this->belongsTo(\Modules\Inventory\Models\ProductGrade::class, 'grade', 'code');
+    }
+
+    public function unitRelation()
+    {
+        return $this->belongsTo(\Modules\Inventory\Models\UnitOfMeasurement::class, 'unit', 'abbreviation');
+    }
 }

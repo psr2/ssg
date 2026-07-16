@@ -61,33 +61,28 @@ class StockLedgerService
         }
 
         $isShop = $location->type === 'shop';
+        $gradeOptions = $this->getGradeOptions($grade);
 
         if ($isShop) {
-            $exists = DB::table('shop_inventory')
+            $matchingRow = DB::table('shop_inventory')
                 ->where('shop_id', $locationId)
                 ->where('product_id', $productId)
                 ->where('batch_id', $batchCode)
-                ->where(function ($q) use ($grade) {
+                ->where(function ($q) use ($grade, $gradeOptions) {
                     if ($grade === null || $grade === '') {
                         $q->whereNull('grade')->orWhere('grade', '');
                     } else {
-                        $q->where('grade', $grade);
+                        $q->whereIn('grade', $gradeOptions);
                     }
                 })
-                ->exists();
+                ->first();
 
-            if ($exists) {
+            if ($matchingRow) {
                 DB::table('shop_inventory')
                     ->where('shop_id', $locationId)
                     ->where('product_id', $productId)
                     ->where('batch_id', $batchCode)
-                    ->where(function ($q) use ($grade) {
-                        if ($grade === null || $grade === '') {
-                            $q->whereNull('grade')->orWhere('grade', '');
-                        } else {
-                            $q->where('grade', $grade);
-                        }
-                    })
+                    ->where('grade', $matchingRow->grade)
                     ->update([
                         'qty' => DB::raw("qty + {$quantity}"),
                         'unit_cost' => $unitCost,
@@ -106,31 +101,25 @@ class StockLedgerService
                 ]);
             }
         } else {
-            $exists = DB::table('warehouse_inventory')
+            $matchingRow = DB::table('warehouse_inventory')
                 ->where('warehouse_id', $locationId)
                 ->where('product_id', $productId)
                 ->where('batch', $batchCode)
-                ->where(function ($q) use ($grade) {
+                ->where(function ($q) use ($grade, $gradeOptions) {
                     if ($grade === null || $grade === '') {
                         $q->whereNull('grade')->orWhere('grade', '');
                     } else {
-                        $q->where('grade', $grade);
+                        $q->whereIn('grade', $gradeOptions);
                     }
                 })
-                ->exists();
+                ->first();
 
-            if ($exists) {
+            if ($matchingRow) {
                 DB::table('warehouse_inventory')
                     ->where('warehouse_id', $locationId)
                     ->where('product_id', $productId)
                     ->where('batch', $batchCode)
-                    ->where(function ($q) use ($grade) {
-                        if ($grade === null || $grade === '') {
-                            $q->whereNull('grade')->orWhere('grade', '');
-                        } else {
-                            $q->where('grade', $grade);
-                        }
-                    })
+                    ->where('grade', $matchingRow->grade)
                     ->update([
                         'qty' => DB::raw("qty + {$quantity}"),
                         'unit_cost' => $unitCost,
@@ -150,31 +139,25 @@ class StockLedgerService
             }
         }
 
-        $summaryExists = DB::table('stock_summary')
+        $matchingSummary = DB::table('stock_summary')
             ->where('location_id', $locationId)
             ->where('product_id', $productId)
             ->where('batch_id', $batchCode)
-            ->where(function ($q) use ($grade) {
+            ->where(function ($q) use ($grade, $gradeOptions) {
                 if ($grade === null || $grade === '') {
                     $q->whereNull('grade')->orWhere('grade', '');
                 } else {
-                    $q->where('grade', $grade);
+                    $q->whereIn('grade', $gradeOptions);
                 }
             })
-            ->exists();
+            ->first();
 
-        if ($summaryExists) {
+        if ($matchingSummary) {
             DB::table('stock_summary')
                 ->where('location_id', $locationId)
                 ->where('product_id', $productId)
                 ->where('batch_id', $batchCode)
-                ->where(function ($q) use ($grade) {
-                    if ($grade === null || $grade === '') {
-                        $q->whereNull('grade')->orWhere('grade', '');
-                    } else {
-                        $q->where('grade', $grade);
-                    }
-                })
+                ->where('grade', $matchingSummary->grade)
                 ->update([
                     'current_qty' => DB::raw("current_qty + {$quantity}"),
                     'updated_at'  => now(),
