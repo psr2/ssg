@@ -25,17 +25,16 @@ class BillingAdjustment extends Model
         return $this->belongsTo(User::class, 'adjusted_by');
     }
 
+    /**
+     * Polymorphic relation to the adjusted sale record.
+     */
+    public function sale()
+    {
+        return $this->morphTo('sale', 'sale_type', 'sale_id');
+    }
+
     public function getSaleObjectAttribute()
     {
-        switch ($this->sale_type) {
-            case 'warehouse':
-                return \Modules\Warehouse\Models\WarehouseSale::find($this->sale_id);
-            case 'shop':
-                return \Modules\ShopManagement\Models\ShopSale::find($this->sale_id);
-            case 'fleet':
-                return \Modules\FleetManagement\Models\FleetSale::find($this->sale_id);
-            default:
-                return null;
-        }
+        return $this->sale;
     }
 }

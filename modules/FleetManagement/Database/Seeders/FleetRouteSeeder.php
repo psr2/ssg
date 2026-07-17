@@ -3,24 +3,23 @@
 namespace Modules\FleetManagement\Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Modules\FleetManagement\Models\FleetRoute;
+use Modules\FleetManagement\Models\FleetRoutes as FleetRoute;
 
 class FleetRouteSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create 10 random routes for testing
-        FleetRoute::factory()->count(10)->create();
+        // Insert required routes
+        $routes = [
+            ['name' => 'Pooppara', 'description' => 'Route to Pooppara'],
+            ['name' => 'kattapana', 'description' => 'Route to Kattapana'],
+            ['name' => 'Mankulam', 'description' => 'Route to Mankulam'],
+            ['name' => 'Kottayam', 'description' => 'Route to Kottayam'],
+            ['name' => 'City Center', 'description' => 'Main Market Area'],
+        ];
 
-        // Optionally, insert a few fixed routes
-        FleetRoute::create([
-            'name' => 'City Center',
-            'description' => 'Main Market Area',
-        ]);
-
-        FleetRoute::create([
-            'name' => 'Airport Express',
-            'description' => 'Route to International Airport',
-        ]);
+        foreach ($routes as $route) {
+            FleetRoute::firstOrCreate(['name' => $route['name']], $route);
+        }
     }
 }

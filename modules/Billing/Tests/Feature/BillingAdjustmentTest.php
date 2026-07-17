@@ -194,4 +194,91 @@ class BillingAdjustmentTest extends TestCase
             'adjusted_by' => 1,
         ]);
     }
+
+    /**
+     * Test the polymorphic relation to the adjusted sale record.
+     */
+    public function test_billing_adjustment_polymorphic_relation(): void
+    {
+        $sale = WarehouseSale::create([
+            'customer_id' => $this->warehouseCustomer->id,
+            'warehouse_id' => $this->warehouse->id,
+            'sale_date' => now(),
+            'total_amount' => 500.00,
+            'paid_amount' => 100.00,
+            'due_amount' => 400.00,
+        ]);
+
+        $adjustment = $this->billingService->createAdjustment([
+            'sale_type' => 'warehouse',
+            'sale_id' => $sale->id,
+            'new_amount' => 450.00,
+            'reason' => 'discretionary_discount',
+            'remarks' => 'Goodwill discount',
+            'adjusted_by' => 1,
+        ]);
+
+        $this->assertNotNull($adjustment->sale);
+        $this->assertInstanceOf(WarehouseSale::class, $adjustment->sale);
+        $this->assertEquals($sale->id, $adjustment->sale->id);
+        $this->assertEquals($adjustment->sale_object->id, $sale->id);
+    }
+
+    /**
+     * Test multiple sequential adjustments to the same sale.
+     */
+    public function test_multiple_billing_adjustments_on_same_sale(): void
+    {
+        $sale = WarehouseSale::create([
+            'customer_id' => $this->warehouseCustomer->id,
+            'warehouse_id' => $this->warehouse->id,
+            'sale_date' => now(),
+            'total_amount' => 500.00,
+            'paid_amount' => 100.00,
+            'due_amount' => 400.00,
+        ]);
+
+        // First adjustment: 500 to 450
+        $adj1 = $this->billingService->createAdjustment([
+            'sale_type' => 'warehouse',
+            'sale_id' => $sale->id,
+            'new_amount' => 450.00,
+            'reason' => 'price_correction',
+            'remarks' => 'First adjustment',
+            'adjusted_by' => 1,
+        ]);
+
+        $sale->refresh();
+        $this->assertEquals(450.00, $sale->total_amount);
+        $this->assertEquals(350.00, $sale->due_amount);
+
+        // Second adjustment: 450 to 480
+        $adj2 = $this->billingService->createAdjustment([
+            'sale_type' => 'warehouse',
+            'sale_id' => $sale->id,
+            'new_amount' => 480.00,
+            'reason' => 'billing_error',
+            'remarks' => 'Second adjustment',
+            'adjusted_by' => 1,
+        ]);
+
+        $sale->refresh();
+        $this->assertEquals(480.00, $sale->total_amount);
+        $this->assertEquals(380.00, $sale->due_amount);
+
+        // Assert database has both adjustment logs
+        $this->assertDatabaseHas('billing_adjustments', [
+            'id' => $adj1->id,
+            'original_amount' => 500.00,
+            'adjusted_amount' => -50.00,
+            'new_amount' => 450.00,
+        ]);
+
+        $this->assertDatabaseHas('billing_adjustments', [
+            'id' => $adj2->id,
+            'original_amount' => 450.00,
+            'adjusted_amount' => 30.00,
+            'new_amount' => 480.00,
+        ]);
+    }
 }

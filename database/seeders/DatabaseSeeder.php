@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             LocationsTableSeeder::class,
             ProductGradesTableSeeder::class,
             \Modules\StockManagement\Database\Seeders\StockInTableSeeder::class,
+            \Modules\FleetManagement\Database\Seeders\FleetRouteSeeder::class,
+            \Modules\FleetManagement\Database\Seeders\FleetVehicleSeeder::class,
         ]);
     }
 }

@@ -150,4 +150,124 @@ class StockOutTest extends TestCase
             'current_qty' => 70.00, // 100.00 - 30.00
         ]);
     }
+
+    /**
+     * Test stock out validation fails for negative price numbers.
+     */
+    public function test_stock_out_validation_fails_for_negative_prices(): void
+    {
+        $unit = UnitOfMeasurement::factory()->create(['name' => 'Kilogram', 'abbreviation' => 'Kg']);
+        $product = Products::factory()->create(['unit_id' => $unit->id]);
+        $location = LocationModel::factory()->create(['type' => 'warehouse']);
+        $grade = ProductGrade::factory()->create(['is_active' => true]);
+
+        $payload = [
+            'stock_type'    => 'out',
+            'reference_no'  => 'SOUT-NEG-001',
+            'movement_date' => '2026-07-14',
+            'destination'   => 'spoiled',
+            'out_type'      => 'spoiled',
+            'items'         => [
+                [
+                    'product_id'   => $product->id,
+                    'grade'        => $grade->name,
+                    'location_id'  => $location->id,
+                    'quantity'     => 10.00,
+                    'unit'         => 'Kg',
+                    'unit_cost'    => -10.00, // Negative unit cost
+                    'total'        => -100.00, // Negative total
+                    'batch_code'   => 'BATCH123',
+                ]
+            ]
+        ];
+
+        $response = $this->postJson('/stock-out-entry', $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'items.0.unit_cost',
+                'items.0.total',
+            ]);
+    }
+
+    /**
+     * Test stock out works successfully with decimal prices (e.g. 10.45, 10.02, 10.00).
+     */
+    public function test_stock_out_works_with_decimal_prices(): void
+    {
+        $unit = UnitOfMeasurement::factory()->create(['name' => 'Kilogram', 'abbreviation' => 'Kg']);
+        $product = Products::factory()->create([
+            'name' => 'Tomato',
+            'abbreviation' => 'TM',
+            'unit_id' => $unit->id
+        ]);
+        $location = LocationModel::factory()->create([
+            'type' => 'warehouse',
+            'abbreviation' => 'WH'
+        ]);
+        $grade = ProductGrade::factory()->create([
+            'name' => 'Grade A',
+            'code' => 'GA',
+            'is_active' => true
+        ]);
+
+        // 1. Establish stock
+        $purchasePayload = [
+            'stock_type' => 'in',
+            'reference_no' => 'PRCH-DEC-999',
+            'movement_date' => '2026-07-14',
+            'in_type' => 'purchase',
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'grade' => $grade->name,
+                    'location_id' => $location->id,
+                    'quantity' => 100.00,
+                    'unit' => 'Kg',
+                    'unit_cost' => 10.00,
+                    'total' => 1000.00,
+                    'remarks' => 'Initial purchase',
+                    'invoice_number' => 'INV-999',
+                    'vendor' => 'Vendor ABC',
+                    'purchase_date' => '2026-07-14',
+                ]
+            ]
+        ];
+        $this->postJson('/stock-in-entry', $purchasePayload)->assertStatus(201);
+        $batchCode = StockPurchaseItem::first()->batch;
+
+        // Decimal prices: 10.45, 10.02, 10.00
+        $decimalCosts = [10.45, 10.02, 10.00];
+
+        foreach ($decimalCosts as $index => $cost) {
+            $payload = [
+                'stock_type'    => 'out',
+                'reference_no'  => 'SOUT-DEC-' . $index,
+                'movement_date' => '2026-07-14',
+                'destination'   => 'spoiled',
+                'out_type'      => 'spoiled',
+                'items'         => [
+                    [
+                        'product_id'   => $product->id,
+                        'grade'        => $grade->name,
+                        'location_id'  => $location->id,
+                        'quantity'     => 1.00,
+                        'unit'         => 'Kg',
+                        'unit_cost'    => $cost,
+                        'total'        => $cost,
+                        'batch_code'   => $batchCode,
+                    ]
+                ]
+            ];
+
+            $response = $this->postJson('/stock-out-entry', $payload);
+
+            $response->assertStatus(201)
+                ->assertJson([
+                    'success' => true,
+                    'message' => 'Stock entry saved successfully.'
+                ]);
+        }
+    }
 }

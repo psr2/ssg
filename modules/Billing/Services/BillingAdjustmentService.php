@@ -32,7 +32,7 @@ class BillingAdjustmentService
             }
 
             // 1. Resolve and validate the sale
-            $sale = $this->resolveSale($saleType, $saleId);
+            $sale = $this->resolveSale($saleType, $saleId, true);
 
             if (!$sale) {
                 throw ValidationException::withMessages([
@@ -67,21 +67,28 @@ class BillingAdjustmentService
         });
     }
 
-    /**
-     * Resolve the sale model instance based on sale type.
-     */
-    public function resolveSale(string $type, $id)
+    public function resolveSale(string $type, $id, bool $lock = false)
     {
+        $query = null;
         switch ($type) {
             case 'warehouse':
-                return WarehouseSale::find($id);
+                $query = WarehouseSale::query();
+                break;
             case 'shop':
-                return ShopSale::find($id);
+                $query = ShopSale::query();
+                break;
             case 'fleet':
-                return FleetSale::find($id);
+                $query = FleetSale::query();
+                break;
             default:
                 return null;
         }
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->find($id);
     }
 
     /**

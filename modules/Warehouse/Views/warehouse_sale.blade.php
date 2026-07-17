@@ -132,6 +132,12 @@
                         </div>
 
                         <div class="col-md-4">
+                            <label class="form-label">Bill #</label>
+                            <input type="text" class="form-control" id="wh_bill_no" placeholder="Bill #" required>
+                            <span class="error-bill_no text-danger text-small"></span>
+                        </div>
+
+                        <div class="col-md-4">
                             <label class="form-label">Customer Name</label>
                             <input type="text" class="form-control" id="wh_customer_name" placeholder="Customer Name" required>
                             <span class="error-customer_name text-danger text-small"></span>
@@ -140,12 +146,6 @@
                             <input type="hidden" name="customer_id" id="wh_customer_id" />
 
                             <div id="wh_no_match" style="display: none;"></div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Bill #</label>
-                            <input type="text" class="form-control" id="wh_bill_no" placeholder="Bill #" required>
-                            <span class="error-bill_no text-danger text-small"></span>
                         </div>
 
                     </div>

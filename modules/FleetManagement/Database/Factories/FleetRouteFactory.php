@@ -1,9 +1,9 @@
 <?php
 
-namespace Modules\FleetManagement\Database\factories;
+namespace Modules\FleetManagement\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Modules\FleetManagement\Models\FleetRoute;
+use Modules\FleetManagement\Models\FleetRoutes as FleetRoute;
 
 class FleetRouteFactory extends Factory
 {

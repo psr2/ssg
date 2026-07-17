@@ -66,7 +66,7 @@ class WarehouseSaleRequest extends FormRequest
             'items.*.batch_code'   => ['required', 'string'],
             'items.*.grade'        => ['required', 'string'],
             'items.*.quantity'     => ['required', 'numeric', 'min:0.01'],
-            'items.*.unit'         => ['required', 'string', 'in:kg,pcs'],
+            'items.*.unit'         => ['required', 'string'],
             'items.*.unit_price'   => ['required', 'numeric', 'min:0'],
             'items.*.total_price'  => ['required', 'numeric', 'min:0'],
         ];
@@ -156,6 +156,20 @@ class WarehouseSaleRequest extends FormRequest
             Log::debug("Grade: " . $grade);
             Log::debug("Warehouse ID: " . $warehouseId);
 
+            // 1. Check unit matches purchase unit case-insensitively
+            try {
+                $latestUnit = $ledgerService->getLatestUnit($warehouseId, (int)$productId, $batchCode, $grade);
+                if (strtolower($item['unit'] ?? '') !== strtolower($latestUnit)) {
+                    $validator->errors()->add(
+                        "items.{$index}.unit",
+                        "The selected unit '" . ($item['unit'] ?? '') . "' does not match the purchase unit '{$latestUnit}' for batch '{$batchCode}'."
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error("Error checking unit matching: " . $e->getMessage());
+            }
+
+            // 2. Check stock availability
             try {
                 $availableQty = $ledgerService->getAvailableStock($warehouseId, $productId, $batchCode, $grade);
             } catch (\Exception $e) {

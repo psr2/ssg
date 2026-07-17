@@ -277,8 +277,65 @@ class StockInTest extends TestCase
 
         // Assert that no warehouse inventory was created
         $this->assertEquals(0, WarehouseInventory::count());
-    }
     */
+
+    /**
+     * Test successful stock in purchase operation with decimal unit costs (e.g. 10.45, 10.02, 10.00).
+     */
+    public function test_stock_in_purchase_with_decimal_costs(): void
+    {
+        $unit = UnitOfMeasurement::factory()->create(['name' => 'Kilogram', 'abbreviation' => 'Kg']);
+        $product = Products::factory()->create([
+            'name' => 'Tomato',
+            'abbreviation' => 'TM',
+            'unit_id' => $unit->id
+        ]);
+        $location = LocationModel::factory()->create([
+            'type' => 'warehouse',
+            'abbreviation' => 'WH'
+        ]);
+        $grade = ProductGrade::factory()->create([
+            'name' => 'Grade A',
+            'code' => 'GA',
+            'is_active' => true
+        ]);
+
+        // Decimal prices: 10.45, 10.02, 10.00
+        $decimalCosts = [10.45, 10.02, 10.00];
+
+        foreach ($decimalCosts as $index => $cost) {
+            $payload = [
+                'stock_type' => 'in',
+                'reference_no' => 'PRCH-DECIMAL-00' . $index,
+                'movement_date' => '2026-06-28',
+                'in_type' => 'purchase',
+                'items' => [
+                    [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'grade' => $grade->name,
+                        'location_id' => $location->id,
+                        'quantity' => 10.00,
+                        'unit' => 'Kg',
+                        'unit_cost' => $cost,
+                        'total' => $cost * 10.00,
+                        'remarks' => 'Purchase batch with decimal cost ' . $cost,
+                        'invoice_number' => 'INV-DEC-' . $index,
+                        'vendor' => 'Vendor ABC',
+                        'purchase_date' => '2026-06-28',
+                    ]
+                ]
+            ];
+
+            $response = $this->postJson('/stock-in-entry', $payload);
+
+            $response->assertStatus(201)
+                ->assertJson([
+                    'success' => true,
+                    'message' => 'Stock entry saved successfully.'
+                ]);
+        }
+    }
 
     /**
      * Test validation failure when essential fields are missing.

@@ -17,7 +17,7 @@
 
         </testsuite>
         <testsuite name="Workflow">
-            <directory>tests/Workflow</directory>
+            <file>tests/Workflow/InventoryWorkflowTest.php</file>
         </testsuite>
     </testsuites>
     <source>

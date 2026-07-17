@@ -82,6 +82,19 @@ class WarehouseBatchCodeRepository
                     $item->batch_code,
                     $item->grade
                 );
+                try {
+                    $latestUnit = $service->getLatestUnit(
+                        (int) $item->location_id,
+                        (int) $item->product_id,
+                        $item->batch_code,
+                        $item->grade
+                    );
+                    if ($latestUnit) {
+                        $item->unit = $latestUnit;
+                    }
+                } catch (\Exception $e) {
+                    // Fall back to product's default unit
+                }
                 return $item;
             })
             ->filter(fn($item) => $item->available_qty > 0)

@@ -7,6 +7,7 @@ const whAddItemBtn      = document.getElementById('wh_addItemBtn');
 const whItemsTableBody  = document.querySelector('#wh_itemsTable tbody');
 const whGrandTotalInput = document.getElementById('wh_grand_total');
 let whProductList       = null;
+let whUnitList          = null;
 document.addEventListener('DOMContentLoaded', async function () {
     const gradesDataEl = document.getElementById('grades-data');
     const dbGrades = gradesDataEl ? JSON.parse(gradesDataEl.getAttribute('data-grades')) : [];
@@ -59,6 +60,18 @@ document.addEventListener('DOMContentLoaded', async function () {
             </td>`;
         }
 
+        let unitOpts = '<option selected disabled>select</option>';
+        if (whUnitList && whUnitList.length > 0) {
+            whUnitList.forEach(u => {
+                unitOpts += `<option value="${u.abbreviation}">${u.abbreviation}</option>`;
+            });
+        } else {
+            unitOpts += `
+                <option value="kg">kg</option>
+                <option value="pcs">pcs</option>
+            `;
+        }
+
         row.innerHTML = `${productTd}
             <td style="width:20%;">
                 <input type="text" readonly class="form-control wh-item-batch-code"
@@ -78,9 +91,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             </td>
             <td style="width:15%;">
                 <select class="form-select wh-item-unit" name="items[unit][]">
-                    <option selected disabled>select</option>
-                    <option value="kg">kg</option>
-                    <option value="pcs">pcs</option>
+                    ${unitOpts}
                 </select>
                 <span class="error error-items-${rowIndex}-unit text-danger text-small"></span>
             </td>
@@ -133,6 +144,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     whAddItemBtn.addEventListener('click', addRow);
 
     await whGetProductList();
+    await whGetUnitList();
     addRow();
 });
 
@@ -279,6 +291,29 @@ async function whGetProductList() {
     }
 }
 
+// ── Unit list fetch ──────────────────────────────────────────────────────────
+async function whGetUnitList() {
+    try {
+        const response = await fetch('/api/units', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json',
+            },
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            whUnitList = data;
+        } else {
+            console.warn('Could not load unit list:', data);
+        }
+    } catch (err) {
+        console.error('Error fetching warehouse unit list:', err);
+    }
+}
+
 
 // ── Batch code modal integration ──────────────────────────────────────────────
 let whCurrentBatchInput = null;
@@ -421,14 +456,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const batchCode = card.getAttribute('data-batch-code');
         const grade     = card.getAttribute('data-grade');
+        const unit      = card.getAttribute('data-unit');
 
         whCurrentBatchInput.value = batchCode;
 
-        // Auto-fill grade in the same table row
         const row = whCurrentBatchInput.closest('tr');
         if (row) {
+            // Auto-fill grade
             const gradeSelect = row.querySelector('.wh-item-grade');
             if (gradeSelect && grade) {
+                let gradeOptionExists = Array.from(gradeSelect.options).some(o => o.value.toLowerCase() === grade.toLowerCase());
+                if (!gradeOptionExists) {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = grade;
+                    newOpt.textContent = grade;
+                    gradeSelect.appendChild(newOpt);
+                }
                 gradeSelect.value = grade;
                 if (!gradeSelect.value || gradeSelect.selectedIndex <= 0) {
                     const opt = Array.from(gradeSelect.options).find(o => 
@@ -438,6 +481,26 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (opt) gradeSelect.value = opt.value;
                 }
             }
+
+            // Auto-fill unit
+            const unitSelect = row.querySelector('.wh-item-unit');
+            if (unitSelect && unit) {
+                let unitOptionExists = Array.from(unitSelect.options).some(o => o.value.toLowerCase() === unit.toLowerCase());
+                if (!unitOptionExists) {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = unit;
+                    newOpt.textContent = unit;
+                    unitSelect.appendChild(newOpt);
+                }
+                unitSelect.value = unit;
+                if (!unitSelect.value || unitSelect.selectedIndex <= 0) {
+                    const opt = Array.from(unitSelect.options).find(o => 
+                        o.text.trim().toLowerCase() === unit.toLowerCase() || 
+                        o.value.trim().toLowerCase() === unit.toLowerCase()
+                    );
+                    if (opt) unitSelect.value = opt.value;
+                }
+            }
         }
 
         // Close batch modal, return to sale modal
@@ -445,6 +508,18 @@ document.addEventListener('DOMContentLoaded', function () {
         const modal   = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
     });
+
+    // Auto-reopen warehouseSaleModal when staticBackdropBatchCode is closed
+    const batchModalEl = document.getElementById('staticBackdropBatchCode');
+    if (batchModalEl) {
+        batchModalEl.addEventListener('hidden.bs.modal', function () {
+            const parentModalEl = document.getElementById('warehouseSaleModal');
+            if (parentModalEl) {
+                const parentModal = bootstrap.Modal.getOrCreateInstance(parentModalEl);
+                parentModal.show();
+            }
+        });
+    }
 });
 
 // ── Edit sale record → open update payments modal ─────────────────────────────
