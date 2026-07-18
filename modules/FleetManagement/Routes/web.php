@@ -67,14 +67,13 @@ Route::prefix("/fleet/payment")->group(function (){
 
 });
 
-
+Route::post('/create-trip', [FleetTripController::class, 'createTrip']);
+Route::get('/search-batches', [FleetTripController::class, 'searchBatches']);
+Route::get('/fleet-trips/{trip}/details', [FleetTripController::class, 'getTripDetails']);
+Route::post('/fleet-trips/{trip}/adjust', [FleetTripController::class, 'adjustTrip']);
 
 Route::get('/fs', [DownloadReportController::class, 'index']);
 
 
 Route::get('/fleet-credit-report/csv', [DownloadReportController::class, 'download'])
     ->name('fleet-credit-report.download');
-
-    
-// routes/web.php or module routes
-Route::get('/fleet-trips/{trip}/edit', [FleetTripController::class, 'edit']);

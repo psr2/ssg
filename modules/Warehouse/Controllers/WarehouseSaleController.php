@@ -19,40 +19,6 @@ class WarehouseSaleController extends Controller
         protected \Modules\Warehouse\Repositories\WarehouseSaleRepository $repo
     ) {}
 
-    /**
-     * Delete an existing warehouse sale and restore inventory stock.
-     */
-    public function destroy(int $id)
-    {
-        Log::debug('Warehouse sale delete request received for ID: ' . $id);
-
-        try {
-            $this->repo->delete($id);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Warehouse sale deleted and stock restored successfully.',
-            ], 200);
-
-        } catch (\Modules\Warehouse\Exceptions\WarehouseSaleFailedException $e) {
-            Log::warning('Warehouse sale delete failed:', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
-
-        } catch (\Exception $e) {
-            Log::error('Unexpected warehouse sale delete exception:', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'An unexpected error occurred during deletion.',
-            ], 500);
-        }
-    }
 
     /**
      * Store a new warehouse sale.

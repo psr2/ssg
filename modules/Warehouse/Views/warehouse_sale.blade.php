@@ -89,10 +89,6 @@
                                 data-customer_id="{{ $item['customer_id'] }}"
                                 data-timestamp="{{ $item['last_updated'] }}">
                             </i>
-
-                            <i class="ms-3 bi bi-trash wh-delete-sale text-danger"
-                                style="cursor:pointer;" data-sale_id="{{ $item['sale_id'] }}">
-                            </i>
                         </div>
                     </td>
                 </tr>
@@ -224,7 +220,7 @@
 
                         <div class="col-md-4">
                             <label class="form-label">Amount Paid</label>
-                            <input type="number" class="form-control" id="wh_amount_paid" placeholder="Enter amount paid">
+                            <input type="number" step="any" class="form-control" id="wh_amount_paid" placeholder="Enter amount paid">
                             <span class="error-amount_paid text-danger text-small"></span>
                         </div>
 
@@ -254,7 +250,7 @@
 
                         <div class="col-md-4">
                             <label class="form-label">Grand Total</label>
-                            <input type="number" class="form-control" id="wh_grand_total" readonly>
+                            <input type="number" step="any" class="form-control" id="wh_grand_total" readonly>
                         </div>
                     </div>
                 </div>

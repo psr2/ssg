@@ -110,6 +110,7 @@ class FleetTripController extends Controller
 
         foreach ($trip->stocks as $stock) {
             $rowData = [
+                'id'          => $stock->id,
                 'product_id'  => $stock->product_id,
                 'product_name' => $stock->product->name ?? '',
                 'batch'       => $stock->batch,
@@ -147,5 +148,54 @@ class FleetTripController extends Controller
     {
         $results = $repo->search($request->all());
         return response()->json($results);
+    }
+
+    public function getTripDetails(int $tripId)
+    {
+        $details = $this->getTripForEdit($tripId);
+        if (!$details) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Trip not found.'
+            ], 404);
+        }
+        return response()->json([
+            'success' => true,
+            'data' => $details
+        ]);
+    }
+
+    public function adjustTrip(int $tripId, \Modules\FleetManagement\Requests\AdjustTripRequest $request)
+    {
+        try {
+            $this->trip->adjustTrip($tripId, $request->validated());
+            return response()->json([
+                'success' => true,
+                'message' => 'Trip adjusted successfully.'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Fleet Trip adjustment exception: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
+    }
+
+    public function destroy(int $id)
+    {
+        try {
+            $this->trip->deleteTrip($id);
+            return response()->json([
+                'success' => true,
+                'message' => 'Trip deleted and stock restored successfully.'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Fleet Trip deletion exception: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
     }
 }

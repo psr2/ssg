@@ -390,4 +390,78 @@ class StockInTest extends TestCase
                 'items.0.unit_cost',
             ]);
     }
+
+    /**
+     * Test that StockInTableSeeder successfully seeds all warehouses.
+     */
+    public function test_stock_in_table_seeder_seeds_all_warehouses(): void
+    {
+        // 1. Setup multiple warehouses, products, units, and grades
+        $unit = UnitOfMeasurement::factory()->create(['name' => 'Kilogram', 'abbreviation' => 'Kg']);
+        
+        $product1 = Products::factory()->create([
+            'name' => 'Tomato',
+            'abbreviation' => 'TM',
+            'unit_id' => $unit->id
+        ]);
+        $product2 = Products::factory()->create([
+            'name' => 'Onion',
+            'abbreviation' => 'ON',
+            'unit_id' => $unit->id
+        ]);
+
+        $warehouse1 = LocationModel::factory()->create([
+            'name' => 'Warehouse 1',
+            'type' => 'warehouse',
+            'abbreviation' => 'WH1'
+        ]);
+        $warehouse2 = LocationModel::factory()->create([
+            'name' => 'Warehouse 2',
+            'type' => 'warehouse',
+            'abbreviation' => 'WH2'
+        ]);
+
+        $grade = ProductGrade::factory()->create([
+            'name' => 'Big',
+            'code' => 'B',
+            'is_active' => true
+        ]);
+
+        // 2. Run the seeder
+        $seeder = new \Modules\StockManagement\Database\Seeders\StockInTableSeeder();
+        $seeder->run();
+
+        // 3. Assert stock purchases exist for both warehouses
+        $this->assertDatabaseHas('stock_purchase_items', [
+            'location_id' => $warehouse1->id,
+            'product' => $product1->id,
+            'grade' => $grade->code,
+        ]);
+        $this->assertDatabaseHas('stock_purchase_items', [
+            'location_id' => $warehouse1->id,
+            'product' => $product2->id,
+            'grade' => $grade->code,
+        ]);
+
+        $this->assertDatabaseHas('stock_purchase_items', [
+            'location_id' => $warehouse2->id,
+            'product' => $product1->id,
+            'grade' => $grade->code,
+        ]);
+        $this->assertDatabaseHas('stock_purchase_items', [
+            'location_id' => $warehouse2->id,
+            'product' => $product2->id,
+            'grade' => $grade->code,
+        ]);
+
+        // 4. Assert stock summaries were correctly updated for all products in all warehouses
+        $this->assertDatabaseHas('stock_summary', [
+            'location_id' => $warehouse1->id,
+            'product_id' => $product1->id,
+        ]);
+        $this->assertDatabaseHas('stock_summary', [
+            'location_id' => $warehouse2->id,
+            'product_id' => $product2->id,
+        ]);
+    }
 }

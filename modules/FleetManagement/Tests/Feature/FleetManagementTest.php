@@ -11,6 +11,14 @@ class FleetManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        if (\DB::connection() instanceof \Illuminate\Database\SQLiteConnection) {
+            \DB::statement('PRAGMA foreign_keys = OFF;');
+        }
+    }
+
     /**
      * Test that FleetRouteSeeder seeds the required routes correctly.
      */
@@ -244,6 +252,251 @@ class FleetManagementTest extends TestCase
 
         $this->assertDatabaseMissing('fleet_vehicles', [
             'id' => $vehicle->id,
+        ]);
+    }
+
+    /**
+     * Test trip creation input validation.
+     */
+    public function test_trip_creation_validation_rules(): void
+    {
+        $unit = \Modules\Inventory\Models\UnitOfMeasurement::factory()->create(['name' => 'Kilogram', 'abbreviation' => 'Kg']);
+        $product = \Modules\Inventory\Models\Products::factory()->create([
+            'name' => 'Tomato',
+            'abbreviation' => 'TM',
+            'unit_id' => $unit->id
+        ]);
+        $location = \Modules\Locations\Models\LocationModel::factory()->create([
+            'type' => 'warehouse',
+            'abbreviation' => 'WH'
+        ]);
+        $grade = \Modules\Inventory\Models\ProductGrade::factory()->create([
+            'name' => 'Grade A',
+            'code' => 'GA',
+            'is_active' => true
+        ]);
+        $vehicle = \Modules\FleetManagement\Models\FleetVehicle::create([
+            'registration_number' => 'KL-06-A-9999',
+            'model' => 'Eicher Pro',
+            'type' => 'Truck',
+            'capacity' => 5000
+        ]);
+        $route = \Modules\FleetManagement\Models\FleetRoutes::create([
+            'name' => 'Route A',
+            'description' => 'Test Route'
+        ]);
+
+        // Insert foreign key dependencies for MySQL / SQLite constraints
+        $masterId = \DB::table('master_stock_in')->insertGetId([
+            'reference_number' => 'REF-VAL-' . uniqid(),
+            'stock_movement_type' => 'in',
+            'stock_in_type' => 'purchase',
+            'stock_in_date' => now()->format('Y-m-d'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $purchaseId = \DB::table('stock_purchase')->insertGetId([
+            'master_stock_in_id' => $masterId,
+            'vendor' => 'Test Vendor',
+            'invoice_number' => 'INV-VAL-' . uniqid(),
+            'purchase_date' => now()->format('Y-m-d'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('stock_purchase_items')->insert([
+            'stock_in_purchase_id' => $purchaseId,
+            'location_id' => $location->id,
+            'product' => $product->id,
+            'batch' => 'BATCH-VAL-123',
+            'grade' => $grade->name,
+            'quantity' => 100.00,
+            'unit' => 'Kg',
+            'unit_cost' => 10.00,
+            'total' => 1000.00,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Place batch in warehouse cache and ledger
+        \DB::table('warehouse_inventory')->insert([
+            'warehouse_id' => $location->id,
+            'product_id'   => $product->id,
+            'batch'        => 'BATCH-VAL-123',
+            'grade'        => $grade->name,
+            'qty'          => 100.00,
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        \DB::table('stock_ledger_entries')->insert([
+            'location_id'      => $location->id,
+            'product_id'       => $product->id,
+            'batch_code'       => 'BATCH-VAL-123',
+            'grade'            => $grade->name,
+            'quantity'         => 100.00,
+            'unit'             => 'Kg',
+            'transaction_type' => 'in',
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ]);
+
+        // Case 1: Decimal quantity (should fail base integer validation)
+        $payloadDecimal = [
+            'route_id'   => $route->id,
+            'vehicle_id' => $vehicle->id,
+            'start_date' => now()->format('Y-m-d'),
+            'tag'        => 'Test Tag',
+            'sent' => [
+                [
+                    'product_id'  => $product->id,
+                    'batch'       => 'BATCH-VAL-123',
+                    'grade'       => $grade->name,
+                    'unit'        => 'Kg',
+                    'quantity'    => 10.5,
+                    'location_id' => $location->id
+                ]
+            ]
+        ];
+
+        $responseDecimal = $this->postJson('/create-trip', $payloadDecimal);
+        $responseDecimal->assertStatus(422)
+            ->assertJsonValidationErrors(['sent.0.quantity']);
+
+        // Case 2: Missing route_id
+        $payloadMissingRoute = $payloadDecimal;
+        unset($payloadMissingRoute['route_id']);
+        $payloadMissingRoute['sent'][0]['quantity'] = 10; // valid integer
+
+        $responseRoute = $this->postJson('/create-trip', $payloadMissingRoute);
+        $responseRoute->assertStatus(422)
+            ->assertJsonValidationErrors(['route_id']);
+    }
+
+    /**
+     * Test successful trip creation records dispatch ledger entries and reduces available stock.
+     */
+    public function test_can_create_trip_successfully_and_reduces_stock(): void
+    {
+        $unit = \Modules\Inventory\Models\UnitOfMeasurement::factory()->create(['name' => 'Kilogram', 'abbreviation' => 'Kg']);
+        $product = \Modules\Inventory\Models\Products::factory()->create([
+            'name' => 'Tomato',
+            'abbreviation' => 'TM',
+            'unit_id' => $unit->id
+        ]);
+        $location = \Modules\Locations\Models\LocationModel::factory()->create([
+            'type' => 'warehouse',
+            'abbreviation' => 'WH'
+        ]);
+        $grade = \Modules\Inventory\Models\ProductGrade::factory()->create([
+            'name' => 'Grade A',
+            'code' => 'GA',
+            'is_active' => true
+        ]);
+        $vehicle = \Modules\FleetManagement\Models\FleetVehicle::create([
+            'registration_number' => 'KL-06-A-9999',
+            'model' => 'Eicher Pro',
+            'type' => 'Truck',
+            'capacity' => 5000
+        ]);
+        $route = \Modules\FleetManagement\Models\FleetRoutes::create([
+            'name' => 'Route A',
+            'description' => 'Test Route'
+        ]);
+
+        // Insert foreign key dependencies for MySQL / SQLite constraints
+        $masterId = \DB::table('master_stock_in')->insertGetId([
+            'reference_number' => 'REF-SUCCESS-' . uniqid(),
+            'stock_movement_type' => 'in',
+            'stock_in_type' => 'purchase',
+            'stock_in_date' => now()->format('Y-m-d'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $purchaseId = \DB::table('stock_purchase')->insertGetId([
+            'master_stock_in_id' => $masterId,
+            'vendor' => 'Test Vendor',
+            'invoice_number' => 'INV-SUCCESS-' . uniqid(),
+            'purchase_date' => now()->format('Y-m-d'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('stock_purchase_items')->insert([
+            'stock_in_purchase_id' => $purchaseId,
+            'location_id' => $location->id,
+            'product' => $product->id,
+            'batch' => 'BATCH-SUCCESS-123',
+            'grade' => $grade->name,
+            'quantity' => 100.00,
+            'unit' => 'Kg',
+            'unit_cost' => 10.00,
+            'total' => 1000.00,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Place batch in warehouse cache for validator checks
+        \DB::table('warehouse_inventory')->insert([
+            'warehouse_id' => $location->id,
+            'product_id'   => $product->id,
+            'batch'        => 'BATCH-SUCCESS-123',
+            'grade'        => $grade->name,
+            'qty'          => 100.00,
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        // Put initial stock in ledger
+        $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
+        $ledgerService->recordEntry([
+            'transaction_type' => 'PURCHASE',
+            'location_id'      => $location->id,
+            'product_id'       => $product->id,
+            'batch_code'       => 'BATCH-SUCCESS-123',
+            'grade'            => $grade->name,
+            'quantity'         => 100.00,
+            'unit'             => 'Kg',
+            'unit_cost'        => 10.00,
+            'remarks'          => 'Initial stock'
+        ]);
+
+        // Assert we have 100 Kg available before dispatch
+        $this->assertEquals(100.00, $ledgerService->getAvailableStock($location->id, $product->id, 'BATCH-SUCCESS-123', $grade->name));
+
+        $payload = [
+            'route_id'   => $route->id,
+            'vehicle_id' => $vehicle->id,
+            'start_date' => now()->format('Y-m-d'),
+            'tag'        => 'Test Tag',
+            'sent' => [
+                [
+                    'product_id' => $product->id,
+                    'batch'      => 'BATCH-SUCCESS-123',
+                    'grade'      => $grade->name,
+                    'unit'       => 'Kg',
+                    'quantity'   => 40, // dispatch 40 Kg
+                    'location_id' => $location->id
+                ]
+            ]
+        ];
+
+        $response = $this->postJson('/create-trip', $payload);
+
+        $response->assertStatus(200);
+
+        // Assert available stock has been reduced by 40 Kg, leaving 60 Kg
+        $this->assertEquals(60.00, $ledgerService->getAvailableStock($location->id, $product->id, 'BATCH-SUCCESS-123', $grade->name));
+
+        // Assert we have a DISPATCH record in stock ledger entries
+        $this->assertDatabaseHas('stock_ledger_entries', [
+            'location_id'      => $location->id,
+            'product_id'       => $product->id,
+            'batch_code'       => 'BATCH-SUCCESS-123',
+            'transaction_type' => 'DISPATCH',
+            'quantity'         => -40.00
         ]);
     }
 }

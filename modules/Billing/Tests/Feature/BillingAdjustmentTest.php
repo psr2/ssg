@@ -281,4 +281,68 @@ class BillingAdjustmentTest extends TestCase
             'new_amount' => 480.00,
         ]);
     }
+
+    /**
+     * Test billing adjustment with decimal values (e.g. 100.50).
+     */
+    public function test_billing_adjustment_with_decimal_values(): void
+    {
+        $sale = WarehouseSale::create([
+            'customer_id' => $this->warehouseCustomer->id,
+            'warehouse_id' => $this->warehouse->id,
+            'sale_date' => now(),
+            'total_amount' => 500.00,
+            'paid_amount' => 100.50,
+            'due_amount' => 399.50,
+        ]);
+
+        // Adjust to a decimal value: 450.75
+        $adjustment = $this->billingService->createAdjustment([
+            'sale_type' => 'warehouse',
+            'sale_id' => $sale->id,
+            'new_amount' => 450.75,
+            'reason' => 'price_correction',
+            'remarks' => 'Adjusted to decimal value',
+            'adjusted_by' => 1,
+        ]);
+
+        $this->assertEquals(450.75, $adjustment->new_amount);
+        $this->assertEquals(-49.25, $adjustment->adjusted_amount);
+
+        $sale->refresh();
+        $this->assertEquals(450.75, $sale->total_amount);
+        $this->assertEquals(350.25, $sale->due_amount); // 450.75 - 100.50
+    }
+
+    /**
+     * Test that adjusting a sale to zero (cancellation) sets due_amount to zero instead of a negative value.
+     */
+    public function test_billing_adjustment_to_zero_sets_due_amount_to_zero_instead_of_negative(): void
+    {
+        $sale = WarehouseSale::create([
+            'customer_id' => $this->warehouseCustomer->id,
+            'warehouse_id' => $this->warehouse->id,
+            'sale_date' => now(),
+            'total_amount' => 500.00,
+            'paid_amount' => 150.00,
+            'due_amount' => 350.00,
+        ]);
+
+        // Adjust to 0.00 (cancellation)
+        $adjustment = $this->billingService->createAdjustment([
+            'sale_type' => 'warehouse',
+            'sale_id' => $sale->id,
+            'new_amount' => 0.00,
+            'reason' => 'voided_sale',
+            'remarks' => 'Voided',
+            'adjusted_by' => 1,
+        ]);
+
+        $this->assertEquals(0.00, $adjustment->new_amount);
+        $this->assertEquals(-500.00, $adjustment->adjusted_amount);
+
+        $sale->refresh();
+        $this->assertEquals(0.00, $sale->total_amount);
+        $this->assertEquals(0.00, $sale->due_amount); // Should be exactly 0.00, NOT -150.00
+    }
 }

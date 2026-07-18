@@ -11,6 +11,10 @@ use Modules\FleetManagement\Models\FleetSale;
 
 class BillingAdjustmentService
 {
+    public function __construct(
+        protected \Modules\StockLedger\Services\StockLedgerService $ledgerService
+    ) {}
+
     /**
      * Create and apply a billing adjustment to a sale.
      *
@@ -49,8 +53,48 @@ class BillingAdjustmentService
             } else {
                 // Warehouse / Shop sales track paid and due amounts
                 $sale->total_amount = $newAmount;
-                $sale->due_amount = $newAmount - (float) $sale->paid_amount;
+                if ((float) $newAmount === 0.0) {
+                    $sale->due_amount = 0.00;
+                } else {
+                    $sale->due_amount = $newAmount - (float) $sale->paid_amount;
+                }
             }
+
+            // Handle stock cancellation reversal if new amount is 0 for warehouse sales
+            if ($saleType === 'warehouse' && (float) $newAmount === 0.0) {
+                if ($sale->status !== 'cancelled') {
+                    $sale->status = 'cancelled';
+
+                    foreach ($sale->items as $saleItem) {
+                        $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                            'product'     => $saleItem->product_id,
+                            'batch'       => $saleItem->batch_code,
+                        ])
+                        ->when($saleItem->grade, function($q) use ($saleItem) {
+                            $q->where('grade', $saleItem->grade);
+                        })
+                        ->first();
+
+                        $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
+
+                        // Log SALE_RETURN with positive quantity delta to restore stock
+                        $this->ledgerService->recordEntry([
+                            'transaction_type' => 'SALE_RETURN',
+                            'location_id'      => (int) $sale->warehouse_id,
+                            'product_id'       => (int) $saleItem->product_id,
+                            'batch_code'       => $saleItem->batch_code,
+                            'grade'            => $saleItem->grade,
+                            'quantity'         => (float) $saleItem->quantity,
+                            'unit'             => $saleItem->unit,
+                            'unit_cost'        => $unitCost,
+                            'reference_id'     => $saleItem->id,
+                            'reference_type'   => get_class($saleItem),
+                            'remarks'          => "Warehouse Sale Reversal (via Billing Adjustment) #{$sale->id}",
+                        ]);
+                    }
+                }
+            }
+
             $sale->save();
 
             // 3. Record the adjustment audit trail

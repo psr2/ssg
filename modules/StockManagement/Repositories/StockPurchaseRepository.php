@@ -35,7 +35,7 @@ class StockPurchaseRepository
      * Used to associate related purchase and item records.
      */
 
-    private readonly int $masterStockInId;
+    private int $masterStockInId;
 
     /**
      * Foreign key referencing the `stock_purchases` table.

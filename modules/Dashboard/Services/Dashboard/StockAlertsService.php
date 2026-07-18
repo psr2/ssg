@@ -55,12 +55,31 @@ class StockAlertsService
                     ->where('stock_transfer_items.product_id', $pId)
                     ->max('stock_transfers.transfer_date') ?? 'N/A';
             } else {
-                $receivedQty = DB::table('stock_purchase_items')
+                $purchasedQty = DB::table('stock_purchase_items')
                     ->where('product', $pId)
                     ->where('location_id', $lId)
                     ->sum('quantity') ?? 0.00;
 
-                $lastPurchaseDate = $lastPurchaseDates[$pId . '_' . $lId]->max_date ?? 'N/A';
+                $transferredQty = DB::table('stock_transfer_items')
+                    ->join('stock_transfers', 'stock_transfers.id', '=', 'stock_transfer_items.stock_transfer_id')
+                    ->where('stock_transfers.to_location_id', $lId)
+                    ->where('stock_transfer_items.product_id', $pId)
+                    ->sum('stock_transfer_items.quantity') ?? 0.00;
+
+                $receivedQty = $purchasedQty + $transferredQty;
+
+                $maxPurchaseDate = $lastPurchaseDates[$pId . '_' . $lId]->max_date ?? null;
+                $maxTransferDate = DB::table('stock_transfers')
+                    ->join('stock_transfer_items', 'stock_transfers.id', '=', 'stock_transfer_items.stock_transfer_id')
+                    ->where('stock_transfers.to_location_id', $lId)
+                    ->where('stock_transfer_items.product_id', $pId)
+                    ->max('stock_transfers.transfer_date') ?? null;
+
+                if ($maxPurchaseDate && $maxTransferDate) {
+                    $lastPurchaseDate = max($maxPurchaseDate, $maxTransferDate);
+                } else {
+                    $lastPurchaseDate = $maxPurchaseDate ?: ($maxTransferDate ?: 'N/A');
+                }
             }
 
             // Percentage remaining

@@ -18,13 +18,17 @@ class TotalCreditSummary
     {
         $warehouseDues = [];
         foreach ($warehouses as $wh) {
-            $warehouseDues[$wh->id] = WarehouseSale::where('warehouse_id', $wh->id)->sum('due_amount') ?? 0;
+            $warehouseDues[$wh->id] = WarehouseSale::where('warehouse_id', $wh->id)
+                ->where('status', '!=', 'cancelled')
+                ->where('due_amount', '>', 0)
+                ->sum('due_amount') ?? 0;
         }
 
         $shopDues = [];
         foreach ($shops as $sh) {
             $shopDues[$sh->id] = ShopSale::join('shop_customers', 'shop_sales.customer_id', '=', 'shop_customers.id')
                 ->where('shop_customers.shop_id', $sh->id)
+                ->where('shop_sales.due_amount', '>', 0)
                 ->sum('shop_sales.due_amount') ?? 0;
         }
 

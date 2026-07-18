@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 <span class="error error-items-${rowIndex}-unit_price text-danger text-small"></span>
             </td>
             <td>
-                <input type="number" class="form-control wh-item-total" name="items[total][]" readonly>
+                <input type="number" class="form-control wh-item-total" name="items[total][]" step="any" readonly>
                 <span class="error error-items-${rowIndex}-total_price text-danger text-small"></span>
             </td>
             <td>
@@ -598,36 +598,4 @@ function whShowErrors(errors) {
     }
 }
 
-// ── Delete sale record ────────────────────────────────────────────────────────
-document.addEventListener('click', function (e) {
-    const btn = e.target.closest('.wh-delete-sale');
-    if (!btn) return;
-
-    const saleId = btn.getAttribute('data-sale_id');
-    if (!saleId) return;
-
-    if (confirm('Are you sure you want to delete this sale and restore its stock to the warehouse inventory?')) {
-        fetch(`/warehouse/sale/${saleId}/delete`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                'Accept': 'application/json',
-            }
-        })
-        .then(async response => {
-            const data = await response.json();
-            if (response.ok && data.success) {
-                alert(data.message);
-                window.location.reload();
-            } else {
-                alert(data.message || 'Failed to delete sale.');
-            }
-        })
-        .catch(err => {
-            console.error('Delete sale request failed:', err);
-            alert('An error occurred while deleting the sale.');
-        });
-    }
-});
 

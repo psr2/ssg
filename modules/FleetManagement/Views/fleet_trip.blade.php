@@ -82,10 +82,14 @@
                         <td>₹{{ number_format($trip->outstanding_credit, 2) }}</td>
 
                         <td>{{ date('d-m-Y', strtotime($trip->start_date)) }}</td>
-                        <td class="justify-center">
-                            <span class="p-2 edit-trip" data-id="{{ $trip->id }}" style="cursor:pointer;">Edit</span>
-                            <span class="badge bg-danger p-2 ms-1 delete-trip" data-id="{{ $trip->id }}"
-                                style="cursor:pointer;">Delete</span>
+                        <td>
+                            @if ($trip->total_billed > 0)
+                                <span class="badge bg-secondary p-2"><i class="bi bi-lock-fill"></i> Locked (Billed)</span>
+                            @else
+                                <button class="btn btn-sm btn-primary adjust-trip-btn" data-id="{{ $trip->id }}">
+                                    <i class="bi bi-sliders"></i> Adjust
+                                </button>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -364,12 +368,89 @@
                                     </div> -->
 
 
+    <!-- Adjust Trip Modal -->
+    <div class="modal fade" id="adjustTripModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="adjustTripModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #f1f5f1ff;">
+                    <h5 class="modal-title" id="adjustTripModalLabel">Adjust Fleet Trip <i class="bi bi-sliders"></i></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Loader -->
+                    <div id="adjustModalLoader" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2">Fetching trip details...</p>
+                    </div>
+
+                    <!-- Form Content -->
+                    <form id="adjustTripForm" class="d-none">
+                        <input type="hidden" id="adjust_trip_id" name="trip_id">
+                        
+                        <!-- Metadata Fields -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="adjust_route" class="form-label">Route</label>
+                                <select class="form-select" id="adjust_route" name="route_id" required>
+                                    <!-- Populated dynamically via JS -->
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="adjust_vehicle" class="form-label">Vehicle</label>
+                                <select class="form-select" id="adjust_vehicle" name="vehicle_id" required>
+                                    <!-- Populated dynamically via JS -->
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="adjust_date" class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="adjust_date" name="start_date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="adjust_tag" class="form-label">Tag</label>
+                                <input type="text" class="form-control" id="adjust_tag" name="tag" required>
+                            </div>
+                        </div>
+
+                        <!-- Dispatched Items List -->
+                        <h6>Dispatched Items Quantity Adjustment</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Product Details</th>
+                                        <th>Location</th>
+                                        <th style="width: 150px;">Sent Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adjustTripItemsTable">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Error Message Alert -->
+                        <div class="alert alert-danger d-none mt-3" id="adjustTripErrorAlert" role="alert">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="submitAdjustTripBtn" disabled>
+                        <span class="spinner-border spinner-border-sm d-none me-2" id="adjustSubmitSpinner" role="status" aria-hidden="true"></span>
+                        Save Adjustments
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @include('fleet_management::Components.Modals.batch_code', [
         'location' => $locations,
         'productList' => $productList
     ])
-
-
 
     @vite(['resources/js/fleet/fleet_trip.js'])
 @endsection

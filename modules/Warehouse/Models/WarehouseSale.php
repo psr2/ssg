@@ -16,6 +16,7 @@ class WarehouseSale extends Model
         'total_amount',
         'paid_amount',
         'due_amount',
+        'status',
     ];
 
     protected $casts = [

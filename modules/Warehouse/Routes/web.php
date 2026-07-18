@@ -29,8 +29,6 @@ Route::prefix('warehouse')->group(function () {
     // Update payment on existing sale
     Route::post('/sale/payments/update', [WarehouseSaleController::class, 'updatePayments'])->name('warehouse.sale.payments.update');
 
-    // Delete sale
-    Route::delete('/sale/{id}/delete', [WarehouseSaleController::class, 'destroy'])->name('warehouse.sale.destroy');
 
     // Scoped batch code search
     Route::post('/search-batch-code', [WarehouseSaleController::class, 'searchBatches'])->name('warehouse.search-batch-code');

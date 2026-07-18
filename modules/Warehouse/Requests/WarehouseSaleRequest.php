@@ -111,7 +111,6 @@ class WarehouseSaleRequest extends FormRequest
             // Duplicate phone check for new customers
             if ($this->filled('customer_contact')) {
                 $exists = WarehouseCustomer::where('phone', $this->input('customer_contact'))
-                    ->where('warehouse_id', $this->input('shop_id'))
                     ->exists();
 
                 if ($exists) {

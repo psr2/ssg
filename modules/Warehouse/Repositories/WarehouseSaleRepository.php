@@ -65,7 +65,6 @@ class WarehouseSaleRepository
 
                 // Look up original purchase item's unit_cost for COGS/ledger
                 $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
-                    'location_id' => $sale->warehouse_id,
                     'product'     => $saleItem->product_id,
                     'batch'       => $saleItem->batch_code,
                 ])
@@ -147,60 +146,5 @@ class WarehouseSaleRepository
         }
 
         return $exists;
-    }
-
-    /**
-     * Delete a sale and restore its stock.
-     *
-     * @throws WarehouseSaleFailedException
-     */
-    public function delete(int $saleId): void
-    {
-        DB::transaction(function () use ($saleId) {
-            $sale = WarehouseSale::with('items')->lockForUpdate()->find($saleId);
-
-            if (!$sale) {
-                throw new WarehouseSaleFailedException("Sale not found or already deleted.");
-            }
-
-            // Create compensating (reversal) ledger entries for each item
-            foreach ($sale->items as $saleItem) {
-                $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
-                    'location_id' => $sale->warehouse_id,
-                    'product'     => $saleItem->product_id,
-                    'batch'       => $saleItem->batch_code,
-                ])
-                ->when($saleItem->grade, function($q) use ($saleItem) {
-                    $q->where('grade', $saleItem->grade);
-                })
-                ->first();
-
-                $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
-
-                // Log SALE_RETURN with positive quantity delta
-                $this->ledgerService->recordEntry([
-                    'transaction_type' => 'SALE_RETURN',
-                    'location_id'      => (int) $sale->warehouse_id,
-                    'product_id'       => (int) $saleItem->product_id,
-                    'batch_code'       => $saleItem->batch_code,
-                    'grade'            => $saleItem->grade,
-                    'quantity'         => (float) $saleItem->quantity, // Positive delta to restore stock
-                    'unit'             => $saleItem->unit,
-                    'unit_cost'        => $unitCost,
-                    'reference_id'     => $saleItem->id,
-                    'reference_type'   => get_class($saleItem),
-                    'remarks'          => "Warehouse Sale Reversal #{$sale->id}",
-                ]);
-            }
-
-            // Delete associated payments
-            WarehousePayment::where('sale_id', $saleId)->delete();
-
-            // Delete associated items
-            WarehouseSaleItem::where('sale_id', $saleId)->delete();
-
-            // Delete the sale header
-            $sale->delete();
-        });
     }
 }

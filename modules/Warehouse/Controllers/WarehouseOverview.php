@@ -12,7 +12,9 @@ class WarehouseOverview extends Controller
     public function index()
     {
         // Calculate dynamic summary metrics for Warehouse sales & inventory
-        $totalReceivables = WarehouseSale::sum('due_amount');
+        $totalReceivables = WarehouseSale::where('status', '!=', 'cancelled')
+            ->where('due_amount', '>', 0)
+            ->sum('due_amount');
         $todaySales       = WarehouseSale::whereDate('sale_date', Carbon::today())->sum('total_amount');
         $lowStockCount    = WarehouseInventory::where('qty', '<', 10)->count();
 

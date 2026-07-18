@@ -21,7 +21,16 @@ class FleetTripService
 
     public function allTrips()
     {
-
        return $this->repo->allTrips();
+    }
+
+    public function deleteTrip(int $tripId)
+    {
+        return $this->repo->delete($tripId);
+    }
+
+    public function adjustTrip(int $tripId, array $data)
+    {
+        return $this->repo->adjust($tripId, $data);
     }
 }

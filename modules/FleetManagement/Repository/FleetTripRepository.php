@@ -122,7 +122,7 @@ class FleetTripRepository
         $qtyReturned = $returnMap[$batch] ?? self::DEFAULT_FLEET_RETURN_QUANTITY;
 
         // Create Dispatch entry
-        Dispatch::create([
+        $dispatch = Dispatch::create([
             'fleet_trip_id' => $trip->id,
             'product_id'    => $item['product_id'],
             'qty_sent'      => $qtySent,
@@ -135,140 +135,200 @@ class FleetTripRepository
 
         // Only update stock/inventory for sent items
         if ($type === 'sent') {
-            $this->updateStockSummary($item);
-            $this->updateLocationInventory($trip, $item);
-        }
-    }
+            // Retrieve unit cost from purchase item
+            $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                'location_id' => $item['location_id'],
+                'product'     => $item['product_id'],
+                'batch'       => $item['batch'],
+            ])
+            ->when($item['grade'] ?? null, function($q) use ($item) {
+                $q->where('grade', $item['grade']);
+            })
+            ->first();
 
-    private function updateStockSummary(array $item): void
-    {
-        if (!isset($item['location_id'], $item['batch'], $item['quantity'], $item['product_id'])) {
-            throw new \Exception("Missing location, product, batch or quantity for stock reduction.");
-        }
+            $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
 
-        $quantity = (int) $item['quantity'];
-        if ($quantity <= 0) {
-            throw new \Exception("Requested quantity for product ID {$item['product_id']} must be greater than zero.");
+            // Record DISPATCH ledger entry using StockLedgerService
+            $service = app(\Modules\StockLedger\Services\StockLedgerService::class);
+            $service->recordEntry([
+                'transaction_type' => 'DISPATCH',
+                'location_id'      => (int) $item['location_id'],
+                'product_id'       => (int) $item['product_id'],
+                'batch_code'       => $item['batch'],
+                'grade'            => $item['grade'] ?? null,
+                'quantity'         => -(float) $item['quantity'], // Negative delta to reduce stock
+                'unit'             => $item['unit'],
+                'unit_cost'        => $unitCost,
+                'reference_id'     => $dispatch->id,
+                'reference_type'   => get_class($dispatch),
+                'remarks'          => "Fleet Trip Dispatch #{$trip->id}",
+            ]);
         }
-
-        $summary = null;
-        if (isset($item['grade']) && $item['grade'] !== '') {
-            $summary = StockSummary::where('location_id', $item['location_id'])
-                ->where('batch_id', $item['batch'])
-                ->where('product_id', $item['product_id'])
-                ->where('grade', $item['grade'])
-                ->lockForUpdate()
-                ->first();
-        }
-
-        if (!$summary) {
-            // Fallback ignoring grade to match parent batch summary record
-            $summary = StockSummary::where('location_id', $item['location_id'])
-                ->where('batch_id', $item['batch'])
-                ->where('product_id', $item['product_id'])
-                ->lockForUpdate()
-                ->first();
-        }
-
-        if (!$summary) {
-            $msg = "No stock summary found for product ID {$item['product_id']}, batch {$item['batch']}";
-            if (isset($item['grade']) && $item['grade'] !== '') {
-                $msg .= ", grade {$item['grade']}";
-            }
-            $msg .= " at location ID {$item['location_id']}.";
-            throw new \Exception($msg);
-        }
-
-        if ($summary->current_qty < $quantity) {
-            throw new \Exception("Insufficient stock in summary. Available: {$summary->current_qty}, Requested: {$quantity}.");
-        }
-
-        $summary->decrement('current_qty', $quantity);
     }
 
     /**
-     * Quantity adjustment based on location type - Shop or Warehouse
+     * Delete a Fleet Trip and reverse its dispatches in the stock ledger.
+     *
+     * @param int $tripId
+     * @throws \Exception
      */
-    private function updateLocationInventory(FleetTrip $trip, array $item): void
+    public function delete(int $tripId): void
     {
-        $location = LocationModel::findOrFail($item['location_id']);
-        $quantity = (int) $item['quantity'];
-        $batch = $item['batch'] ?? null;
-        $grade = $item['grade'] ?? null;
+        DB::transaction(function () use ($tripId) {
+            $trip = FleetTrip::lockForUpdate()->find($tripId);
+            if (!$trip) {
+                throw new \Exception("Trip not found or already deleted.");
+            }
 
-        switch (strtolower($location->type)) {
-            case 'shop':
-                $inventory = ShopInventory::where([
-                    'shop_id'     => $location->id,
-                    'batch_id'    => $batch,
-                    'grade'       => $grade,
-                    'product_id'  => $item['product_id'],
-                ])
-                ->lockForUpdate()
-                ->first();
+            // Check if there are sales billed against this trip
+            $salesExist = DB::table('fleet_sales')->where('fleet_trip_id', $tripId)->exists();
+            if ($salesExist) {
+                throw new \Exception("Cannot delete trip because sales have already been billed against it.");
+            }
 
-                if (!$inventory) {
-                    // Fallback ignoring grade
-                    $inventory = ShopInventory::where([
-                        'shop_id'     => $location->id,
-                        'batch_id'    => $batch,
-                        'product_id'  => $item['product_id'],
+            // Get dispatches (sent stock)
+            $dispatches = DB::table('fleet_trip_stocks')
+                ->where('fleet_trip_id', $tripId)
+                ->get();
+
+            $service = app(\Modules\StockLedger\Services\StockLedgerService::class);
+
+            foreach ($dispatches as $dispatch) {
+                if ($dispatch->qty_sent > 0) {
+                    // Look up purchase unit cost
+                    $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                        'location_id' => $dispatch->location_id,
+                        'product'     => $dispatch->product_id,
+                        'batch'       => $dispatch->batch,
                     ])
-                    ->lockForUpdate()
+                    ->when($dispatch->grade, function($q) use ($dispatch) {
+                        $q->where('grade', $dispatch->grade);
+                    })
                     ->first();
+
+                    $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
+
+                    // Log DISPATCH_REVERSAL with positive quantity delta to restore stock
+                    $service->recordEntry([
+                        'transaction_type' => 'DISPATCH_REVERSAL',
+                        'location_id'      => (int) $dispatch->location_id,
+                        'product_id'       => (int) $dispatch->product_id,
+                        'batch_code'       => $dispatch->batch,
+                        'grade'            => $dispatch->grade,
+                        'quantity'         => (float) $dispatch->qty_sent, // Positive delta to restore stock
+                        'unit'             => $dispatch->unit,
+                        'unit_cost'        => $unitCost,
+                        'reference_id'     => $dispatch->id,
+                        'reference_type'   => 'Modules\FleetManagement\Models\FleetStockDispatch',
+                        'remarks'          => "Fleet Trip Reversal #{$trip->id}",
+                    ]);
                 }
+            }
 
-                if (!$inventory) {
-                    throw new \Exception("No shop inventory record found for product ID {$item['product_id']}, batch {$batch} at location '{$location->name}'.");
+            // Delete associated fleet_trip_stocks
+            DB::table('fleet_trip_stocks')->where('fleet_trip_id', $tripId)->delete();
+
+            // Delete the trip header
+            $trip->delete();
+        });
+    }
+
+    /**
+     * Adjust a Fleet Trip's metadata and stock dispatch quantities.
+     */
+    public function adjust(int $tripId, array $data): void
+    {
+        DB::transaction(function () use ($tripId, $data) {
+            $trip = FleetTrip::lockForUpdate()->find($tripId);
+            if (!$trip) {
+                throw new \Exception("Trip not found.");
+            }
+
+            // Check if sales exist
+            $salesExist = DB::table('fleet_sales')->where('fleet_trip_id', $tripId)->exists();
+            if ($salesExist) {
+                throw new \Exception("Cannot adjust trip because sales have already been billed against it.");
+            }
+
+            // Update metadata
+            $trip->update([
+                'route_id'   => $data['route_id'],
+                'vehicle_id' => $data['vehicle_id'],
+                'start_date' => $data['start_date'],
+                'tag'        => $data['tag'],
+            ]);
+
+            $service = app(\Modules\StockLedger\Services\StockLedgerService::class);
+
+            // Process item adjustments
+            if (isset($data['items']) && is_array($data['items'])) {
+                foreach ($data['items'] as $item) {
+                    $stockId = (int) $item['id'];
+                    $newQty = (int) $item['quantity'];
+
+                    if ($newQty < 1) {
+                        throw new \Exception("Quantity must be greater than zero.");
+                    }
+
+                    $stock = DB::table('fleet_trip_stocks')->where('id', $stockId)->first();
+                    if (!$stock) {
+                        throw new \Exception("Stock dispatch item not found.");
+                    }
+
+                    $oldQty = (int) $stock->qty_sent;
+                    $delta = $oldQty - $newQty;
+
+                    if ($delta !== 0) {
+                        // If increasing dispatch (delta < 0), check available stock at source location
+                        if ($delta < 0) {
+                            $additionalQtyNeeded = abs($delta);
+                            $availableQty = $service->getAvailableStock(
+                                (int) $stock->location_id,
+                                (int) $stock->product_id,
+                                $stock->batch,
+                                $stock->grade
+                            );
+
+                            if ($additionalQtyNeeded > $availableQty) {
+                                throw new \Exception("Insufficient stock for batch {$stock->batch}. Available: {$availableQty}.");
+                            }
+                        }
+
+                        // Update qty_sent in database
+                        DB::table('fleet_trip_stocks')->where('id', $stockId)->update([
+                            'qty_sent' => $newQty
+                        ]);
+
+                        // Retrieve purchase unit cost
+                        $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                            'location_id' => $stock->location_id,
+                            'product'     => $stock->product_id,
+                            'batch'       => $stock->batch,
+                        ])
+                        ->when($stock->grade, function($q) use ($stock) {
+                            $q->where('grade', $stock->grade);
+                        })
+                        ->first();
+
+                        $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
+
+                        // Record ADJUSTMENT entry in ledger
+                        $service->recordEntry([
+                            'transaction_type' => 'ADJUSTMENT',
+                            'location_id'      => (int) $stock->location_id,
+                            'product_id'       => (int) $stock->product_id,
+                            'batch_code'       => $stock->batch,
+                            'grade'            => $stock->grade,
+                            'quantity'         => (float) $delta, // Positive restores, negative reduces
+                            'unit'             => $stock->unit,
+                            'unit_cost'        => $unitCost,
+                            'reference_id'     => $stock->id,
+                            'reference_type'   => 'Modules\FleetManagement\Models\FleetStockDispatch',
+                            'remarks'          => "Fleet Trip Adjustment #{$tripId}",
+                        ]);
+                    }
                 }
-
-                if ($inventory->qty < $quantity) {
-                    throw new \Exception("Insufficient shop inventory stock. Available: {$inventory->qty}, Requested: {$quantity}.");
-                }
-
-                $inventory->qty -= $quantity;
-                $inventory->stock_transfer_id = $trip->id;
-                $inventory->save();
-                break;
-
-            case 'warehouse':
-                $inventory = WarehouseInventory::where([
-                    'warehouse_id' => $location->id,
-                    'batch'        => $batch,
-                    'grade'       => $grade,
-                    'product_id'  => $item['product_id'],
-                ])
-                ->lockForUpdate()
-                ->first();
-
-                if (!$inventory) {
-                    // Fallback ignoring grade
-                    $inventory = WarehouseInventory::where([
-                        'warehouse_id' => $location->id,
-                        'batch'        => $batch,
-                        'product_id'  => $item['product_id'],
-                    ])
-                    ->lockForUpdate()
-                    ->first();
-                }
-
-                if (!$inventory) {
-                    throw new \Exception("No warehouse inventory record found for product ID {$item['product_id']}, batch {$batch} at location '{$location->name}'.");
-                }
-
-                if ($inventory->qty < $quantity) {
-                    throw new \Exception("Insufficient warehouse inventory stock. Available: {$inventory->qty}, Requested: {$quantity}.");
-                }
-
-                $inventory->qty -= $quantity;
-                $inventory->save();
-                break;
-
-            default:
-                Log::warning("Unknown location type: {$location->type}", [
-                    'location_id' => $location->id
-                ]);
-                break;
-        }
+            }
+        });
     }
 }
