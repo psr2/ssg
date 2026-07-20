@@ -24,6 +24,7 @@ require base_path('modules/Warehouse/Routes/web.php');
 
 require base_path('modules/StockAdjustment/Routes/web.php');
 require base_path('modules/Billing/Routes/web.php');
+require base_path('modules/Reporting/Routes/web.php');
 
 
 

@@ -50,6 +50,22 @@ class BillingAdjustmentService
             // 2. Update the sale's financial state
             if ($saleType === 'fleet') {
                 $sale->total_amount = $newAmount;
+
+                // Adjust fleet sale item quantities so trip stock immediately reflects the adjustment
+                if ((float) $newAmount === 0.0) {
+                    foreach ($sale->items as $saleItem) {
+                        $saleItem->quantity = 0.00;
+                        $saleItem->total_price = 0.00;
+                        $saleItem->save();
+                    }
+                } elseif ($originalAmount > 0 && $newAmount != $originalAmount) {
+                    $ratio = $newAmount / $originalAmount;
+                    foreach ($sale->items as $saleItem) {
+                        $saleItem->quantity = round((float)$saleItem->quantity * $ratio, 4);
+                        $saleItem->total_price = round((float)$saleItem->total_price * $ratio, 2);
+                        $saleItem->save();
+                    }
+                }
             } else {
                 // Warehouse / Shop sales track paid and due amounts
                 $sale->total_amount = $newAmount;

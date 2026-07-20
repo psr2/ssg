@@ -499,4 +499,135 @@ class FleetManagementTest extends TestCase
             'quantity'         => -40.00
         ]);
     }
+
+    /**
+     * Test cancelling a fleet trip with sales restores stock and zeroes sale totals.
+     */
+    public function test_cancelling_trip_with_sales_restores_stock_and_zeroes_financials(): void
+    {
+        $route = FleetRoutes::create(['name' => 'Cancel Test Route']);
+        $vehicle = FleetVehicle::create(['registration_number' => 'KL-06-CANCEL-1']);
+        $unit = \Modules\Inventory\Models\UnitOfMeasurement::firstOrCreate(['name' => 'Kg'], ['abbreviation' => 'Kg']);
+        $location = \Modules\Locations\Models\LocationModel::factory()->create(['type' => 'warehouse', 'abbreviation' => 'WCA']);
+        $product = \Modules\Inventory\Models\Products::firstOrCreate(['sku' => 'PROD-CANCEL'], ['name' => 'Cancel Product', 'abbreviation' => 'CP', 'unit_id' => $unit->id]);
+        $grade = \Modules\Inventory\Models\ProductGrade::factory()->create(['name' => 'Grade Cancel', 'code' => 'GC', 'is_active' => true]);
+
+        $masterId = \DB::table('master_stock_in')->insertGetId([
+            'reference_number' => 'REF-CANCEL-' . uniqid(),
+            'stock_movement_type' => 'in',
+            'stock_in_type' => 'purchase',
+            'stock_in_date' => now()->format('Y-m-d'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $purchaseId = \DB::table('stock_purchase')->insertGetId([
+            'master_stock_in_id' => $masterId,
+            'vendor' => 'Test Vendor',
+            'invoice_number' => 'INV-CANCEL-' . uniqid(),
+            'purchase_date' => now()->format('Y-m-d'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('stock_purchase_items')->insert([
+            'stock_in_purchase_id' => $purchaseId,
+            'location_id' => $location->id,
+            'product' => $product->id,
+            'batch' => 'BATCH-CANCEL-999',
+            'grade' => $grade->name,
+            'quantity' => 80.00,
+            'unit' => 'Kg',
+            'unit_cost' => 15.00,
+            'total' => 1200.00,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('warehouse_inventory')->insert([
+            'warehouse_id' => $location->id,
+            'product_id'   => $product->id,
+            'batch'        => 'BATCH-CANCEL-999',
+            'grade'        => $grade->name,
+            'qty'          => 80.00,
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        $ledgerService = app(\Modules\StockLedger\Services\StockLedgerService::class);
+        $ledgerService->recordEntry([
+            'transaction_type' => 'PURCHASE',
+            'location_id'      => $location->id,
+            'product_id'       => $product->id,
+            'batch_code'       => 'BATCH-CANCEL-999',
+            'grade'            => $grade->name,
+            'quantity'         => 80.00,
+            'unit'             => 'Kg',
+            'unit_cost'        => 15.00,
+            'remarks'          => 'Stock for trip cancel test'
+        ]);
+
+        $dispatchResp = $this->postJson('/create-trip', [
+            'route_id'   => $route->id,
+            'vehicle_id' => $vehicle->id,
+            'start_date' => now()->format('Y-m-d'),
+            'tag'        => 'Cancel Test Trip',
+            'sent'       => [
+                [
+                    'product_id'  => $product->id,
+                    'batch'       => 'BATCH-CANCEL-999',
+                    'grade'       => $grade->name,
+                    'unit'        => 'Kg',
+                    'quantity'    => 50,
+                    'location_id' => $location->id
+                ]
+            ]
+        ]);
+        $dispatchResp->assertStatus(200);
+        $tripId = \Modules\FleetManagement\Models\FleetTrip::latest('id')->first()->id;
+
+        // Verify stock in warehouse was reduced to 30 Kg
+        $this->assertEquals(30.00, $ledgerService->getAvailableStock($location->id, $product->id, 'BATCH-CANCEL-999', $grade->name));
+
+        // Create a fleet sale
+        $saleResp = $this->postJson('/fleet/sale/store', [
+            'trip_id'        => $tripId,
+            'customer_name'  => 'Cancel Customer',
+            'bill_no'        => 'BC01',
+            'payment_status' => 'paid',
+            'amount_paid'    => 500,
+            'payment_date'   => now()->format('Y-m-d'),
+            'payment_mode'   => 'cash',
+            'items'          => [
+                [
+                    'product'     => $product->name,
+                    'grade'       => $grade->name,
+                    'quantity'    => 20,
+                    'unit'        => 'Kg',
+                    'unit_price'  => 25,
+                    'total_price' => 500
+                ]
+            ]
+        ]);
+        $saleResp->assertStatus(200);
+
+        // Cancel the trip via DELETE endpoint
+        $cancelResp = $this->deleteJson("/fleet-trips/{$tripId}");
+        $cancelResp->assertStatus(200)->assertJson(['success' => true]);
+
+        // Assert trip status updated to 'cancelled'
+        $this->assertDatabaseHas('fleet_trips', [
+            'id' => $tripId,
+            'status' => 'cancelled'
+        ]);
+
+        // Assert stock restored back to 80 Kg
+        $this->assertEquals(80.00, $ledgerService->getAvailableStock($location->id, $product->id, 'BATCH-CANCEL-999', $grade->name));
+
+        // Assert sale and sale item total/quantity zeroed out
+        $this->assertDatabaseHas('fleet_sales', [
+            'fleet_trip_id' => $tripId,
+            'total_amount'  => 0.00
+        ]);
+    }
 }

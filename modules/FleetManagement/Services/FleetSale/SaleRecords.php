@@ -28,14 +28,40 @@ class SaleRecords
 
 
             $records->getCollection()->transform(function ($record) {
+                $itemsSummary = $record->items->map(function ($item) {
+                    $gradeStr = $item->grade ? " ({$item->grade})" : "";
+                    $qty = (float)$item->quantity == (int)$item->quantity ? (int)$item->quantity : (float)$item->quantity;
+                    return "{$qty} {$item->unit} {$item->product_name}{$gradeStr}";
+                })->filter(function ($str) {
+                    return !str_starts_with($str, '0 ');
+                })->implode(', ');
+
+                $totalAmount = (float) $record->total_amount;
+                $paid = (float) $record->paid;
+                
+                // If total amount is 0, the bill was cancelled/zeroed out via billing adjustment
+                $isCancelled = ($totalAmount === 0.0);
+                $balance = $isCancelled ? 0.00 : max(0.00, $totalAmount - $paid);
+                
+                if ($isCancelled) {
+                    $status = 'cancelled';
+                } elseif ($balance <= 0) {
+                    $status = 'paid';
+                } else {
+                    $status = 'partial';
+                }
+
                 return [
-                    'bill_id'=>$record->id,
+                    'bill_id' => $record->id,
                     'bill_number' => $record->bill_number,
                     'customer_name' => $record->customer_name,
-                    'total_amount' => number_format($record->total_amount, 2),
+                    'items_summary' => $itemsSummary ?: 'Cancelled Bill',
+                    'total_amount' => number_format($totalAmount, 2),
                     'created_at' => $record->created_at->format('Y-m-d H:i:s'),
-                    'paid' => number_format($record->paid, 2),
-                    'balance' => number_format($record->balance, 2),
+                    'paid' => number_format($paid, 2),
+                    'balance' => number_format($balance, 2),
+                    'status' => $status,
+                    'is_cancelled' => $isCancelled,
                 ];
             });
             return $records;

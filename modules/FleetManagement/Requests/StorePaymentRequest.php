@@ -48,7 +48,7 @@ class StorePaymentRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.product' => ['required', 'string', 'max:255'],
             'items.*.grade' => ['nullable', 'string', 'max:255'],
-            'items.*.quantity' => ['required', 'string', 'numeric', 'min:0.01'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit' => ['required', 'string', 'max:255'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.total_price' => ['required', 'numeric', 'min:0'],
@@ -106,7 +106,7 @@ class StorePaymentRequest extends FormRequest
                 );
             }
 
-            if ($this->isPartialZero($amountPaid, $status)) {
+            if ($this->isPartialZero($status, $amountPaid)) {
                 $validator->errors()->add(
                     'amount_paid',
                     $this->messages()['amount_paid.partial_cant_be_zero']
@@ -118,6 +118,81 @@ class StorePaymentRequest extends FormRequest
                     'amount_paid',
                     $this->messages()['amount_paid.unpaid_not_allowed']
                 );
+            }
+
+            // Check trip items and quantities
+            $tripId = $this->input('trip_id');
+            $items = $this->input('items', []);
+
+            if ($tripId && is_array($items) && count($items) > 0) {
+                // Fetch all dispatched stocks for this trip
+                $dispatches = \Modules\FleetManagement\Models\FleetStockDispatch::where('fleet_trip_id', $tripId)
+                    ->with('product')
+                    ->get();
+
+                // Group dispatches by product name, grade, and unit to know totals sent
+                $dispatchTotals = [];
+                foreach ($dispatches as $dispatch) {
+                    $prodName = $dispatch->product->name ?? '';
+                    $key = strtolower(trim($prodName)) . '|' . strtolower(trim($dispatch->grade)) . '|' . strtolower(trim($dispatch->unit));
+                    if (!isset($dispatchTotals[$key])) {
+                        $dispatchTotals[$key] = 0;
+                    }
+                    $dispatchTotals[$key] += max(0, (float)($dispatch->qty_sent - $dispatch->qty_returned));
+                }
+
+                // Fetch all previous active sales for this trip to calculate already sold quantities
+                $previousSaleItems = \Modules\FleetManagement\Models\FleetSaleItem::whereHas('sale', function ($query) use ($tripId) {
+                    $query->where('fleet_trip_id', $tripId)
+                          ->where('total_amount', '>', 0);
+                })->get();
+
+                $alreadySoldTotals = [];
+                foreach ($previousSaleItems as $prevItem) {
+                    $key = strtolower(trim($prevItem->product_name)) . '|' . strtolower(trim($prevItem->grade)) . '|' . strtolower(trim($prevItem->unit));
+                    if (!isset($alreadySoldTotals[$key])) {
+                        $alreadySoldTotals[$key] = 0;
+                    }
+                    $alreadySoldTotals[$key] += (float)$prevItem->quantity;
+                }
+
+                // Validate each item in the request payload
+                $currentRequestTotals = [];
+
+                foreach ($items as $index => $item) {
+                    $prodName = $item['product'] ?? '';
+                    $grade = $item['grade'] ?? '';
+                    $unit = $item['unit'] ?? '';
+                    $qty = (float)($item['quantity'] ?? 0);
+
+                    $key = strtolower(trim($prodName)) . '|' . strtolower(trim($grade)) . '|' . strtolower(trim($unit));
+
+                    // 1. Check if the product/grade/unit combination is dispatched
+                    if (!isset($dispatchTotals[$key])) {
+                        $validator->errors()->add(
+                            "items.{$index}.product",
+                            "Product '{$prodName}' (Grade: {$grade}, Unit: {$unit}) is not assigned to this trip."
+                        );
+                        continue;
+                    }
+
+                    // 2. Check if the total requested quantity (previous + current request) exceeds dispatched
+                    if (!isset($currentRequestTotals[$key])) {
+                        $currentRequestTotals[$key] = 0;
+                    }
+                    $currentRequestTotals[$key] += $qty;
+
+                    $limit = $dispatchTotals[$key];
+                    $alreadySold = $alreadySoldTotals[$key] ?? 0.0;
+                    $available = $limit - $alreadySold;
+
+                    if ($currentRequestTotals[$key] > $available) {
+                        $validator->errors()->add(
+                            "items.{$index}.quantity",
+                            "Requested quantity ({$qty}) exceeds available stock on this trip. Dispatched: {$limit}, Already Sold: {$alreadySold}, Available: {$available} {$unit}."
+                        );
+                    }
+                }
             }
         });
     }

@@ -12,7 +12,8 @@ class FleetTrip extends Model
         'route_id',
         'vehicle_id',
         'start_date',
-         'tag'
+        'tag',
+        'status'
     ];
 
     /*
@@ -21,15 +22,20 @@ class FleetTrip extends Model
     |--------------------------------------------------------------------------
     */
 
-    // public function route()
-    // {
-    //     return $this->belongsTo(\Modules\FleetManagement\Models\FleetRoute::class, 'route_id');
-    // }
+    public function route()
+    {
+        return $this->belongsTo(\Modules\FleetManagement\Models\FleetRoutes::class, 'route_id');
+    }
 
-    // public function vehicle()
-    // {
-    //     return $this->belongsTo(\Modules\FleetManagement\Models\FleetVehicle::class, 'vehicle_id');
-    // }
+    public function vehicle()
+    {
+        return $this->belongsTo(\Modules\FleetManagement\Models\FleetVehicle::class, 'vehicle_id');
+    }
+
+    public function stocks()
+    {
+        return $this->hasMany(\Modules\FleetManagement\Models\FleetStockDispatch::class, 'fleet_trip_id');
+    }
 
     // Keep driver commented until you add driver_id column
     // public function driver()

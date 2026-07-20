@@ -15,5 +15,6 @@ return [
     Modules\ShopManagement\BootstrapShopManagementProvider::class,
     Modules\Warehouse\BootstrapWarehouseManagementProvider::class,
     Modules\Expenses\BootstrapExpenseServiceProvider::class,
-    Modules\Billing\BootstrapBillingProvider::class
+    Modules\Billing\BootstrapBillingProvider::class,
+    Modules\Reporting\BootstrapReportingProvider::class
 ];

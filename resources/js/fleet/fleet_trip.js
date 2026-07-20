@@ -557,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <input type="number" class="form-control adjust-item-qty" 
                                        data-stock-id="${item.id}" 
                                        value="${item.quantity}" 
-                                       min="1" step="1" required>
+                                       min="0" step="1" required>
                                 <span class="input-group-text">${item.unit || ''}</span>
                             </div>
                         </td>
@@ -639,6 +639,37 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    // Handle delete trip
+    document.addEventListener('click', function (e) {
+        const deleteBtn = e.target.closest('.delete-trip-btn');
+        if (!deleteBtn) return;
+
+        const tripId = deleteBtn.getAttribute('data-id');
+        if (confirm('Are you sure you want to cancel this trip? All dispatched stock will be restored to their source locations.')) {
+            deleteBtn.disabled = true;
+            fetch(`/fleet-trips/${tripId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Failed to cancel trip.');
+                    deleteBtn.disabled = false;
+                }
+            })
+            .catch(err => {
+                alert('An error occurred while cancelling the trip.');
+                deleteBtn.disabled = false;
+            });
+        }
+    });
 
 });
 

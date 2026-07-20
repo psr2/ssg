@@ -104,20 +104,43 @@ class FleetTripController extends Controller
             return null;
         }
 
+        // Fetch all previous active sales for this trip to calculate already sold quantities
+        $previousSaleItems = \Modules\FleetManagement\Models\FleetSaleItem::whereHas('sale', function ($query) use ($tripId) {
+            $query->where('fleet_trip_id', $tripId)
+                  ->where('total_amount', '>', 0);
+        })->get();
+
+        $alreadySoldTotals = [];
+        foreach ($previousSaleItems as $prevItem) {
+            $key = strtolower(trim($prevItem->product_name)) . '|' . strtolower(trim($prevItem->grade)) . '|' . strtolower(trim($prevItem->unit));
+            if (!isset($alreadySoldTotals[$key])) {
+                $alreadySoldTotals[$key] = 0;
+            }
+            $alreadySoldTotals[$key] += (float)$prevItem->quantity;
+        }
+
         // Separate sent and returned stock
         $productsSent = [];
         $productsReturned = [];
 
         foreach ($trip->stocks as $stock) {
+            $prodName = $stock->product->name ?? '';
+            $key = strtolower(trim($prodName)) . '|' . strtolower(trim($stock->grade)) . '|' . strtolower(trim($stock->unit));
+            $soldQty = $alreadySoldTotals[$key] ?? 0.0;
+            $netDispatched = max(0, (float)($stock->qty_sent - $stock->qty_returned));
+            $availableQty = max(0, $netDispatched - $soldQty);
+
             $rowData = [
-                'id'          => $stock->id,
-                'product_id'  => $stock->product_id,
-                'product_name' => $stock->product->name ?? '',
-                'batch'       => $stock->batch,
-                'grade'       => $stock->grade,
-                'quantity'    => $stock->qty_sent,
-                'unit'        => $stock->unit,
-                'location_id' => $stock->location_id,
+                'id'            => $stock->id,
+                'product_id'    => $stock->product_id,
+                'product_name'  => $prodName,
+                'batch'         => $stock->batch,
+                'grade'         => $stock->grade,
+                'quantity'      => (float)$stock->qty_sent,
+                'qty_sold'      => (float)$soldQty,
+                'qty_available' => (float)$availableQty,
+                'unit'          => $stock->unit,
+                'location_id'   => $stock->location_id,
                 'location_name' => $stock->location->name ?? '',
             ];
 
@@ -126,12 +149,12 @@ class FleetTripController extends Controller
             // Only add returned quantity if > 0
             if ($stock->qty_returned > 0) {
                 $productsReturned[] = [
-                    'product_id'  => $stock->product_id,
-                    'product_name' => $stock->product->name ?? '',
-                    'batch'       => $stock->batch,
-                    'grade'       => $stock->grade,
-                    'quantity'    => $stock->qty_returned,
-                    'location_id' => $stock->location_id,
+                    'product_id'    => $stock->product_id,
+                    'product_name'  => $prodName,
+                    'batch'         => $stock->batch,
+                    'grade'         => $stock->grade,
+                    'quantity'      => (float)$stock->qty_returned,
+                    'location_id'   => $stock->location_id,
                     'location_name' => $stock->location->name ?? '',
                 ];
             }

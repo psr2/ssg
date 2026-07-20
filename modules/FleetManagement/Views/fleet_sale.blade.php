@@ -64,11 +64,12 @@
 
 
 
-        <table class="table  table-striped">
+        <table class="table table-striped align-middle">
             <thead>
                 <tr style="text-align: center;">
                     <th style="background-color: #08b325d3; color: white;">Bill No</th>
                     <th style="background-color: #08b325d3; color: white;">Customer</th>
+                    <th style="background-color: #08b325d3; color: white;">Items / Qty Sold</th>
                     <th style="background-color: #08b325d3; color: white;">Sale</th>
                     <th style="background-color: #08b325d3; color: white;">Status</th>
                     <th style="background-color: #08b325d3; color: white;">Paid</th>
@@ -81,16 +82,25 @@
                     <tr>
                         <td>{{ $record['bill_number'] }}</td>
                         <td>{{ $record['customer_name'] }} </td>
+                        <td>
+                            <span class="badge bg-light text-dark border font-monospace">
+                                {{ $record['items_summary'] ?? 'N/A' }}
+                            </span>
+                        </td>
                         <td>₹{{ $record['total_amount'] }}</td>
                         <td>
-                            <span class="badge {{ $record['balance'] == 0 ? 'bg-success' : 'bg-warning' }}">
-                                {{ $record['balance'] == 0 ? 'Paid' : 'Partial' }}
-                            </span>
+                            @if ($record['is_cancelled'] || ($record['status'] ?? '') === 'cancelled')
+                                <span class="badge bg-danger">Cancelled</span>
+                            @elseif (($record['status'] ?? '') === 'paid' || (float)$record['balance'] == 0)
+                                <span class="badge bg-success">Paid</span>
+                            @else
+                                <span class="badge bg-warning text-dark">Partial</span>
+                            @endif
                         </td>
                         <td>₹{{ $record['paid'] }}</td>
                         <td>₹{{ $record['balance'] }}</td>
                         <td>
-                            @if ($record['balance'] != 0)
+                            @if (!$record['is_cancelled'] && ($record['status'] ?? '') !== 'cancelled' && (float)$record['balance'] > 0)
                                 <button class="btn btn-sm btn-primary btn-payments" data-bs-toggle="modal"
                                     data-id="{{ $record['bill_id'] }}" data-bs-target="#updatePaymentModal">Update
                                     Payment</button>
@@ -99,7 +109,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
+                        <td colspan="8" class="text-center py-4 text-muted">
                             <i class="bi bi-info-circle me-1"></i> No sale records found.
                         </td>
                     </tr>

@@ -44,7 +44,7 @@
 
         </div>
 
-        <table class="table table-sm table-striped ms-2">
+        <table class="table table-sm table-striped ms-2 align-middle">
             <thead style="text-align: center;">
                 <tr>
                     <th style="background-color: #08b325d3; color: white;">#</th>
@@ -53,6 +53,7 @@
                     <th style="background-color: #08b325d3; color: white;">Tag</th>
                     <th style="background-color: #08b325d3; color: white;">Sent</th>
                     <th style="background-color: #08b325d3; color: white;">Billed</th>
+                    <th style="background-color: #08b325d3; color: white;">Remaining</th>
                     <th style="background-color: #08b325d3; color: white;">Outstanding</th>
                     <th style="background-color: #08b325d3; color: white;">Date</th>
                     <th style="background-color: #08b325d3; color: white;">Action</th>
@@ -60,41 +61,53 @@
             </thead>
             <tbody style="text-align: center;">
                 @forelse($trips as $trip)
-                    <tr>
+                    <tr class="{{ $trip->status === 'cancelled' ? 'table-secondary text-muted' : '' }}">
                         <td>{{ $loop->iteration }}</td>
-                        <td>{{ $trip->route_name ?? 'N/A' }}</td>
+                        <td>
+                            {{ $trip->route_name ?? 'N/A' }}
+                            @if ($trip->status === 'cancelled')
+                                <span class="badge bg-danger ms-1">Cancelled</span>
+                            @endif
+                        </td>
                         <!-- <td>{{ $trip->vehicle_number ?? 'N/A' }}</td> -->
                         <td>{{ $trip->tag }}</td>
                         <td>
-                            @if ($trip->total_sent > 1000)
-                                {{ number_format($trip->total_sent / 1000, 2) }} tn
-                            @else
-                                {{ $trip->total_sent }} Kg
-                            @endif
+                            {{ number_format((float)$trip->total_sent, 2) }} Kg
                         </td>
                         <td>
-                            @if ($trip->total_billed > 1000)
-                                {{ number_format($trip->total_billed / 1000, 2) }} tn
-                            @else
-                                {{ $trip->total_billed }} Kg
-                            @endif
+                            {{ number_format((float)$trip->total_billed, 2) }} Kg
                         </td>
-                        <td>₹{{ number_format($trip->outstanding_credit, 2) }}</td>
+                        <td>
+                            @php 
+                                $rem = $trip->status === 'cancelled' ? 0 : max(0, (float)($trip->remaining_stock ?? ($trip->total_sent - $trip->total_billed))); 
+                            @endphp
+                            <span class="badge {{ ($rem > 0 && $trip->status !== 'cancelled') ? 'bg-success' : 'bg-secondary' }}">
+                                {{ number_format($rem, 2) }} Kg
+                            </span>
+                        </td>
+                        <td>₹{{ number_format((float)$trip->outstanding_credit, 2) }}</td>
 
                         <td>{{ date('d-m-Y', strtotime($trip->start_date)) }}</td>
                         <td>
-                            @if ($trip->total_billed > 0)
-                                <span class="badge bg-secondary p-2"><i class="bi bi-lock-fill"></i> Locked (Billed)</span>
+                            @if ($trip->status === 'cancelled')
+                                <span class="badge bg-danger p-2"><i class="bi bi-x-circle-fill"></i> Cancelled</span>
                             @else
-                                <button class="btn btn-sm btn-primary adjust-trip-btn" data-id="{{ $trip->id }}">
-                                    <i class="bi bi-sliders"></i> Adjust
-                                </button>
+                                <div class="d-flex gap-1 justify-content-center">
+                                    @if ((float)$trip->total_billed == 0)
+                                        <button class="btn btn-sm btn-primary adjust-trip-btn" data-id="{{ $trip->id }}">
+                                            <i class="bi bi-sliders"></i> Adjust
+                                        </button>
+                                    @endif
+                                    <button class="btn btn-sm btn-danger delete-trip-btn" data-id="{{ $trip->id }}">
+                                        <i class="bi bi-x-circle"></i> Cancel
+                                    </button>
+                                </div>
                             @endif
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="text-center">No trips found</td>
+                        <td colspan="9" class="text-center">No trips found</td>
                     </tr>
                 @endforelse
             </tbody>

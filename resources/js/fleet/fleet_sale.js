@@ -135,6 +135,30 @@ document.addEventListener("DOMContentLoaded", function () {
     const itemsTableBody = document.querySelector("#itemsTable tbody");
     const grandTotalInput = document.getElementById("grand_total");
 
+    // Helper to fetch details of a selected trip
+    async function fetchTripDetails(tripId) {
+        if (!tripId) {
+            window.selectedTripProducts = [];
+            return;
+        }
+        try {
+            let response = await fetch(`/fleet-trips/${tripId}/details`);
+            if (response.ok) {
+                let json = await response.json();
+                if (json.success && json.data) {
+                    window.selectedTripProducts = json.data.products_sent || [];
+                } else {
+                    window.selectedTripProducts = [];
+                }
+            } else {
+                window.selectedTripProducts = [];
+            }
+        } catch (err) {
+            console.error("Error fetching trip details:", err);
+            window.selectedTripProducts = [];
+        }
+    }
+
     // Check if there is a saved default trip that is not expired
     const savedTripId = localStorage.getItem("default_trip_id");
     const savedRouteId = localStorage.getItem("default_route_id");
@@ -154,17 +178,55 @@ document.addEventListener("DOMContentLoaded", function () {
             if (savedRouteId) {
                 searchCustomerNames(savedRouteId);
             }
+
+            fetchTripDetails(savedTripId).then(() => {
+                itemsTableBody.innerHTML = "";
+                addRow();
+            });
         } else {
             localStorage.removeItem("default_trip_id");
             localStorage.removeItem("default_route_id");
             localStorage.removeItem("default_trip_expiry");
+            addRow();
         }
+    } else {
+        // Start with one empty row
+        addRow();
     }
+
+    // Handle select trip button inside the trip search modal
+    document.addEventListener("click", function (e) {
+        if (e.target && e.target.classList.contains("btn-select-route")) {
+            const tripId = e.target.getAttribute("data-trip");
+            const routeId = e.target.getAttribute("data-route");
+            const tripSelect = document.getElementById("trip_id_select");
+            if (tripSelect) {
+                // If the selected trip option is not present in the dropdown, add it dynamically
+                let optionExists = false;
+                for (let option of tripSelect.options) {
+                    if (option.value === tripId) {
+                        optionExists = true;
+                        break;
+                    }
+                }
+                if (!optionExists) {
+                    const tag = e.target.getAttribute("data-tag") || "Trip #" + tripId;
+                    const newOpt = document.createElement("option");
+                    newOpt.value = tripId;
+                    newOpt.textContent = tag;
+                    newOpt.setAttribute("data-route", routeId);
+                    tripSelect.appendChild(newOpt);
+                }
+                tripSelect.value = tripId;
+                tripSelect.dispatchEvent(new Event("change"));
+            }
+        }
+    });
 
     const tripSelect = document.getElementById("trip_id_select");
     const tripHidden = document.getElementById("trip_hidden");
     if (tripSelect) {
-        tripSelect.addEventListener("change", function () {
+        tripSelect.addEventListener("change", async function () {
             const selectedOption = tripSelect.options[tripSelect.selectedIndex];
             const tripId = tripSelect.value;
             const routeId = selectedOption.getAttribute("data-route") || "";
@@ -176,6 +238,19 @@ document.addEventListener("DOMContentLoaded", function () {
             if (routeId) {
                 searchCustomerNames(routeId);
             }
+
+            // Reset items on trip change
+            itemsTableBody.innerHTML = "";
+            recalcGrandTotal();
+            clearErrorSpans();
+
+            if (tripId) {
+                await fetchTripDetails(tripId);
+            } else {
+                window.selectedTripProducts = [];
+            }
+
+            addRow();
 
             // Save default selection with 1-hour expiry (3600 * 1000 ms)
             localStorage.setItem("default_trip_id", tripId);
@@ -202,36 +277,20 @@ document.addEventListener("DOMContentLoaded", function () {
         const row = document.createElement("tr");
         row.setAttribute("data-index", rowIndex);
 
-        // Build product select options
+        // Build product select options based on products sent for the trip
         let productOptions = '<option selected disabled value="">Select product</option>';
-        if (window.fleetProducts && window.fleetProducts.length) {
-            window.fleetProducts.forEach(prod => {
-                productOptions += `<option value="${prod.name}">${prod.name}</option>`;
-            });
-        }
-
-        // Build unit select options
-        let unitOptions = '<option selected disabled value="">Select unit</option>';
-        if (window.fleetUnits && window.fleetUnits.length) {
-            window.fleetUnits.forEach(unit => {
-                unitOptions += `<option value="${unit.abbreviation}">${unit.name} (${unit.abbreviation})</option>`;
-            });
-        }
-
-        // Build grade select options
-        let gradeOptions = '<option selected disabled value="">Select grade</option>';
-        if (window.fleetGrades && window.fleetGrades.length) {
-            window.fleetGrades.forEach(grade => {
-                gradeOptions += `<option value="${grade.code}">${grade.name}</option>`;
+        if (window.selectedTripProducts && window.selectedTripProducts.length) {
+            const uniqueProductNames = [...new Set(window.selectedTripProducts.map(p => p.product_name))];
+            uniqueProductNames.forEach(prodName => {
+                productOptions += `<option value="${prodName}">${prodName}</option>`;
             });
         } else {
-            // fallback static grades
-            gradeOptions += `
-                <option value="A">Grade A</option>
-                <option value="B">Grade B</option>
-                <option value="C">Grade C</option>
-            `;
+            productOptions = '<option selected disabled value="">No products on this trip</option>';
         }
+
+        // Grade and Unit dropdown options (populated on product selection change)
+        let gradeOptions = '<option selected disabled value="">Select grade</option>';
+        let unitOptions = '<option selected disabled value="">Select unit</option>';
 
         row.innerHTML = `
             <td>
@@ -241,7 +300,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <span class="error error-items-${rowIndex}-product text-danger text-small"></span>
             </td>
             <td>
-                <select class="form-select item-grade" name="items[grade][]" required>
+                <select class="form-select item-grade" name="items[grade][]" disabled required>
                     ${gradeOptions}
                 </select>
                 <span class="error error-items-${rowIndex}-grade text-danger text-small"></span>
@@ -249,9 +308,10 @@ document.addEventListener("DOMContentLoaded", function () {
             <td>
                 <input type="number" class="form-control item-qty" name="items[qty][]" min="0" step="any" required>
                 <span class="error error-items-${rowIndex}-quantity text-danger text-small"></span>
+                <small class="stock-info-text text-muted d-block mt-1" style="font-size: 0.75rem;"></small>
             </td>
             <td style="width:15%;">
-                <select class="form-select item-unit" name="items[unit][]" required>
+                <select class="form-select item-unit" name="items[unit][]" disabled required>
                     ${unitOptions}
                 </select>
                 <span class="error error-items-${rowIndex}-unit text-danger text-small"></span>
@@ -269,9 +329,69 @@ document.addEventListener("DOMContentLoaded", function () {
             </td>
         `;
 
+        const productSelect = row.querySelector(".item-product");
+        const gradeSelect = row.querySelector(".item-grade");
+        const unitSelect = row.querySelector(".item-unit");
         const qtyInput = row.querySelector(".item-qty");
         const priceInput = row.querySelector(".item-price");
         const totalInput = row.querySelector(".item-total");
+        const stockInfoEl = row.querySelector(".stock-info-text");
+
+        function updateStockBadge() {
+            const prodName = productSelect.value;
+            const grade = gradeSelect.value;
+            if (!stockInfoEl) return;
+
+            if (!prodName) {
+                stockInfoEl.innerHTML = "";
+                return;
+            }
+
+            const match = window.selectedTripProducts.find(p => p.product_name === prodName && (!grade || p.grade === grade));
+            if (match) {
+                const avail = match.qty_available !== undefined ? match.qty_available : match.quantity;
+                const sold = match.qty_sold !== undefined ? match.qty_sold : 0;
+                const sent = match.quantity !== undefined ? match.quantity : 0;
+                stockInfoEl.innerHTML = `<span class="badge bg-success">Avail: ${avail} ${match.unit}</span> <span class="badge bg-secondary">Sold: ${sold} ${match.unit}</span>`;
+            } else {
+                stockInfoEl.innerHTML = "";
+            }
+        }
+
+        // Dynamic grade & unit selection cascading logic
+        productSelect.addEventListener("change", function () {
+            const selectedProdName = productSelect.value;
+            if (!selectedProdName) return;
+
+            const matches = window.selectedTripProducts.filter(p => p.product_name === selectedProdName);
+
+            // Cascade grades with stock metrics
+            const uniqueGrades = [...new Set(matches.map(p => p.grade).filter(Boolean))];
+            let gradeHtml = '<option selected disabled value="">Select grade</option>';
+            uniqueGrades.forEach(g => {
+                const itemMatch = matches.find(p => p.grade === g);
+                const avail = itemMatch && itemMatch.qty_available !== undefined ? itemMatch.qty_available : '';
+                const sold = itemMatch && itemMatch.qty_sold !== undefined ? itemMatch.qty_sold : '';
+                const unit = itemMatch ? itemMatch.unit : '';
+                const stockLabel = avail !== '' ? ` (Avail: ${avail} ${unit}, Sold: ${sold} ${unit})` : '';
+                gradeHtml += `<option value="${g}">${g}${stockLabel}</option>`;
+            });
+            gradeSelect.innerHTML = gradeHtml;
+            gradeSelect.disabled = false;
+
+            // Cascade units
+            const uniqueUnits = [...new Set(matches.map(p => p.unit).filter(Boolean))];
+            let unitHtml = '<option selected disabled value="">Select unit</option>';
+            uniqueUnits.forEach(u => {
+                unitHtml += `<option value="${u}">${u}</option>`;
+            });
+            unitSelect.innerHTML = unitHtml;
+            unitSelect.disabled = false;
+
+            updateStockBadge();
+        });
+
+        gradeSelect.addEventListener("change", updateStockBadge);
 
         function recalcRowTotal() {
             const qty = parseFloat(qtyInput.value) || 0;
@@ -286,7 +406,6 @@ document.addEventListener("DOMContentLoaded", function () {
         row.querySelector(".removeRowBtn").addEventListener("click", function () {
             row.remove();
             recalcGrandTotal();
-            // Re-index rows and error spans
             reindexRows();
         });
 
@@ -306,8 +425,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Add row when button clicked
     addItemBtn.addEventListener("click", addRow);
 
-    // Start with one empty row
-    addRow();
+
 
     // Handle sale submission
     document.getElementById("btn-sale").addEventListener("click", async (e) => {

@@ -71,6 +71,7 @@ Route::post('/create-trip', [FleetTripController::class, 'createTrip']);
 Route::get('/search-batches', [FleetTripController::class, 'searchBatches']);
 Route::get('/fleet-trips/{trip}/details', [FleetTripController::class, 'getTripDetails']);
 Route::post('/fleet-trips/{trip}/adjust', [FleetTripController::class, 'adjustTrip']);
+Route::delete('/fleet-trips/{trip}', [FleetTripController::class, 'destroy']);
 
 Route::get('/fs', [DownloadReportController::class, 'index']);
 

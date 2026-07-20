@@ -21,20 +21,14 @@ class FleetTripRepository
             'fleet_trips.*',
             'fleet_routes.name as route_name',
             'fleet_vehicles.registration_number as vehicle_number',
-            DB::raw('COALESCE(SUM(fleet_trip_stocks.qty_sent), 0) as total_sent'),
-            DB::raw('COALESCE(SUM(fleet_trip_stocks.qty_returned), 0) as total_returned'),
-            DB::raw('(SELECT COALESCE(SUM(fsi.quantity), 0) FROM fleet_sales fs JOIN fleet_sale_items fsi ON fsi.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id) as total_billed'),
-            DB::raw('((SELECT COALESCE(SUM(fs.total_amount), 0) FROM fleet_sales fs WHERE fs.fleet_trip_id = fleet_trips.id) - (SELECT COALESCE(SUM(fsp.amount), 0) FROM fleet_sales fs JOIN fleet_sale_payments fsp ON fsp.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id)) as outstanding_credit')
+            DB::raw("CASE WHEN fleet_trips.status = 'cancelled' THEN 0 ELSE (SELECT COALESCE(SUM(qty_sent), 0) FROM fleet_trip_stocks WHERE fleet_trip_stocks.fleet_trip_id = fleet_trips.id) END as total_sent"),
+            DB::raw("CASE WHEN fleet_trips.status = 'cancelled' THEN 0 ELSE (SELECT COALESCE(SUM(qty_returned), 0) FROM fleet_trip_stocks WHERE fleet_trip_stocks.fleet_trip_id = fleet_trips.id) END as total_returned"),
+            DB::raw("CASE WHEN fleet_trips.status = 'cancelled' THEN 0 ELSE (SELECT COALESCE(SUM(fsi.quantity), 0) FROM fleet_sales fs JOIN fleet_sale_items fsi ON fsi.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id AND fs.total_amount > 0) END as total_billed"),
+            DB::raw("CASE WHEN fleet_trips.status = 'cancelled' THEN 0 ELSE ((SELECT COALESCE(SUM(qty_sent - qty_returned), 0) FROM fleet_trip_stocks WHERE fleet_trip_stocks.fleet_trip_id = fleet_trips.id) - (SELECT COALESCE(SUM(fsi.quantity), 0) FROM fleet_sales fs JOIN fleet_sale_items fsi ON fsi.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id AND fs.total_amount > 0)) END as remaining_stock"),
+            DB::raw("CASE WHEN fleet_trips.status = 'cancelled' THEN 0 ELSE (CASE WHEN ((SELECT COALESCE(SUM(fs.total_amount), 0) FROM fleet_sales fs WHERE fs.fleet_trip_id = fleet_trips.id AND fs.total_amount > 0) - (SELECT COALESCE(SUM(fsp.amount), 0) FROM fleet_sales fs JOIN fleet_sale_payments fsp ON fsp.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id AND fs.total_amount > 0)) < 0 THEN 0 ELSE ((SELECT COALESCE(SUM(fs.total_amount), 0) FROM fleet_sales fs WHERE fs.fleet_trip_id = fleet_trips.id AND fs.total_amount > 0) - (SELECT COALESCE(SUM(fsp.amount), 0) FROM fleet_sales fs JOIN fleet_sale_payments fsp ON fsp.fleet_sale_id = fs.id WHERE fs.fleet_trip_id = fleet_trips.id AND fs.total_amount > 0)) END) END as outstanding_credit")
         )
             ->leftJoin('fleet_routes', 'fleet_trips.route_id', '=', 'fleet_routes.id')
             ->leftJoin('fleet_vehicles', 'fleet_trips.vehicle_id', '=', 'fleet_vehicles.id')
-
-            // join stock table
-            ->leftJoin('fleet_trip_stocks', 'fleet_trip_stocks.fleet_trip_id', '=', 'fleet_trips.id')
-
-            // group by trip so SUM works properly
-            ->groupBy('fleet_trips.id', 'fleet_routes.name', 'fleet_vehicles.registration_number')
-
             ->orderBy('fleet_trips.id', 'desc')
             ->paginate(self::RECORDS_IN_PAGINATION);
     }
@@ -176,14 +170,21 @@ class FleetTripRepository
     {
         DB::transaction(function () use ($tripId) {
             $trip = FleetTrip::lockForUpdate()->find($tripId);
-            if (!$trip) {
-                throw new \Exception("Trip not found or already deleted.");
+            if (!$trip || $trip->status === 'cancelled') {
+                throw new \Exception("Trip not found or already cancelled.");
             }
 
-            // Check if there are sales billed against this trip
-            $salesExist = DB::table('fleet_sales')->where('fleet_trip_id', $tripId)->exists();
-            if ($salesExist) {
-                throw new \Exception("Cannot delete trip because sales have already been billed against it.");
+            // Zero out any existing sales & sale items for this trip
+            $sales = \Modules\FleetManagement\Models\FleetSale::where('fleet_trip_id', $tripId)->get();
+            foreach ($sales as $sale) {
+                $sale->total_amount = 0.00;
+                $sale->save();
+
+                foreach ($sale->items as $item) {
+                    $item->quantity = 0.00;
+                    $item->total_price = 0.00;
+                    $item->save();
+                }
             }
 
             // Get dispatches (sent stock)
@@ -225,11 +226,8 @@ class FleetTripRepository
                 }
             }
 
-            // Delete associated fleet_trip_stocks
-            DB::table('fleet_trip_stocks')->where('fleet_trip_id', $tripId)->delete();
-
-            // Delete the trip header
-            $trip->delete();
+            // Update the trip status to cancelled
+            $trip->update(['status' => 'cancelled']);
         });
     }
 
@@ -242,6 +240,10 @@ class FleetTripRepository
             $trip = FleetTrip::lockForUpdate()->find($tripId);
             if (!$trip) {
                 throw new \Exception("Trip not found.");
+            }
+
+            if ($trip->status === 'cancelled') {
+                throw new \Exception("Cannot adjust trip because it has been cancelled.");
             }
 
             // Check if sales exist
@@ -266,8 +268,49 @@ class FleetTripRepository
                     $stockId = (int) $item['id'];
                     $newQty = (int) $item['quantity'];
 
-                    if ($newQty < 1) {
-                        throw new \Exception("Quantity must be greater than zero.");
+                    if ($newQty < 0) {
+                        throw new \Exception("Quantity cannot be negative.");
+                    }
+
+                    if ($newQty === 0) {
+                        $stock = DB::table('fleet_trip_stocks')->where('id', $stockId)->first();
+                        if (!$stock) {
+                            throw new \Exception("Stock dispatch item not found.");
+                        }
+
+                        $oldQty = (int) $stock->qty_sent;
+                        if ($oldQty > 0) {
+                            // Retrieve purchase unit cost
+                            $purchaseItem = \Modules\StockManagement\Models\StockIn\StockPurchaseItem::where([
+                                'location_id' => $stock->location_id,
+                                'product'     => $stock->product_id,
+                                'batch'       => $stock->batch,
+                            ])
+                            ->when($stock->grade, function($q) use ($stock) {
+                                $q->where('grade', $stock->grade);
+                            })
+                            ->first();
+
+                            $unitCost = $purchaseItem ? (float) $purchaseItem->unit_cost : 0.00;
+
+                            // Record DISPATCH_REVERSAL entry in ledger to restore the stock
+                            $service->recordEntry([
+                                'transaction_type' => 'DISPATCH_REVERSAL',
+                                'location_id'      => (int) $stock->location_id,
+                                'product_id'       => (int) $stock->product_id,
+                                'batch_code'       => $stock->batch,
+                                'grade'            => $stock->grade,
+                                'quantity'         => (float) $oldQty, // Positive delta restores stock
+                                'unit'             => $stock->unit,
+                                'unit_cost'        => $unitCost,
+                                'reference_id'     => $stock->id,
+                                'reference_type'   => 'Modules\FleetManagement\Models\FleetStockDispatch',
+                                'remarks'          => "Fleet Trip Adjustment Item Removal #{$tripId}",
+                            ]);
+                        }
+
+                        DB::table('fleet_trip_stocks')->where('id', $stockId)->delete();
+                        continue;
                     }
 
                     $stock = DB::table('fleet_trip_stocks')->where('id', $stockId)->first();

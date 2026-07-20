@@ -22,7 +22,7 @@ class AdjustTripRequest extends FormRequest
             'tag'              => 'required|string|max:255',
             'items'            => 'required|array|min:1',
             'items.*.id'       => 'required|exists:fleet_trip_stocks,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.quantity' => 'required|integer|min:0',
         ];
     }
 
@@ -49,7 +49,7 @@ class AdjustTripRequest extends FormRequest
             'items.*.id.exists'         => 'Invalid item reference.',
             'items.*.quantity.required' => 'Quantity is required.',
             'items.*.quantity.integer'  => 'Quantity must be an integer.',
-            'items.*.quantity.min'      => 'Quantity must be at least 1.',
+            'items.*.quantity.min'      => 'Quantity must be at least 0.',
         ];
     }
 }

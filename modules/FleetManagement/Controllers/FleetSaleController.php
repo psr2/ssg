@@ -66,8 +66,11 @@ class FleetSaleController extends Controller
         $perPage = $request->input('per_page', self::RECORDS_PER_PAGE);
         $saleRecords = $this->saleRecordsService->scan($perPage);
 
-        // Fetch latest 5 created trips
-        $latestTrips = \Modules\FleetManagement\Models\FleetTrip::orderBy('created_at', 'desc')
+        // Fetch latest 5 active (non-cancelled) trips
+        $latestTrips = \Modules\FleetManagement\Models\FleetTrip::where(function ($q) {
+            $q->whereNull('status')->orWhere('status', '!=', 'cancelled');
+        })
+            ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc')
             ->take(5)
             ->get();
@@ -180,7 +183,10 @@ class FleetSaleController extends Controller
      */
     public function latestTrips()
     {
-        $latestTrips = \Modules\FleetManagement\Models\FleetTrip::orderBy('created_at', 'desc')
+        $latestTrips = \Modules\FleetManagement\Models\FleetTrip::where(function ($q) {
+            $q->whereNull('status')->orWhere('status', '!=', 'cancelled');
+        })
+            ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc')
             ->take(5)
             ->get();
