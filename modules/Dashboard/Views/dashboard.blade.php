@@ -142,17 +142,21 @@
 
 
 
-                <li class="menu-item {{ request()->is('reports/*') ? 'active' : '' }}">
+                <li class="menu-item {{ request()->is('reports*') ? 'active' : '' }}">
                     <div class="menu-title">
-                        <i class="bi bi-shop"></i>&nbsp;Reports
+                        <i class="bi bi-file-earmark-bar-graph"></i>&nbsp;Reports
                         <i class="bi bi-caret-down"></i>
                     </div>
                     <ul class="submenu">
-                        <li><a href="#"><i class="bi bi-file-earmark-bar-graph"></i> Report - Shop</a></li>
-                        <li><a href="#"><i class="bi bi-file-earmark-bar-graph"></i> Report - Warehouse</a></li>
-                        <li><a href="#"><i class="bi bi-file-earmark-bar-graph"></i> Report - Fleet</a></li>
-                        <li><a href="#"><i class="bi bi-file-earmark-bar-graph"></i> Report - Quarterly</a></li>
-                        <li><a href="#"><i class="bi bi-file-earmark-bar-graph"></i> Report - Credits</a></li>
+                        <li><a href="/reports"><i class="bi bi-grid"></i> Reports Dashboard</a></li>
+                        <li><a href="/reports/stock"><i class="bi bi-box-seam"></i> Stock Inventory</a></li>
+                        <li><a href="/reports/ledger"><i class="bi bi-journal-text"></i> Stock Ledger</a></li>
+                        <li><a href="/reports/warehouse"><i class="bi bi-building"></i> Warehouse Sales</a></li>
+                        <li><a href="/reports/shop"><i class="bi bi-shop"></i> Shop Sales</a></li>
+                        <li><a href="/reports/fleet"><i class="bi bi-truck"></i> Fleet Operations</a></li>
+                        <li><a href="/reports/expenses"><i class="bi bi-wallet2"></i> Expenses & Costs</a></li>
+                        <li><a href="/reports/adjustments"><i class="bi bi-sliders"></i> Stock Adjustments</a></li>
+                        <li><a href="/reports/credits"><i class="bi bi-credit-card"></i> Credits & Receivables</a></li>
                     </ul>
                 </li>
             </ul>
