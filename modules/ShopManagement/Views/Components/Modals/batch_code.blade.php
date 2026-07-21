@@ -17,8 +17,12 @@
               <label for="productName" class="form-label premium-form-label">Product Name</label>
               <select class="form-select premium-form-select" name="product_listing">
                 <option value="" disabled selected>Select product</option>
-                @foreach($productList as $product)
-                <option value="{{ $product['id'] }}">{{ $product['name'] }}</option>
+                @foreach(($productList ?? $products ?? []) as $product)
+                @php
+                  $pId = is_array($product) ? ($product['id'] ?? '') : ($product->id ?? '');
+                  $pName = is_array($product) ? ($product['name'] ?? '') : ($product->name ?? '');
+                @endphp
+                <option value="{{ $pId }}">{{ $pName }}</option>
                 @endforeach
               </select>
               <span class="error-product text-danger small"></span>
@@ -28,8 +32,12 @@
               <label for="location" class="form-label premium-form-label">Location</label>
               <select id="location" class="form-select premium-form-select" name="location" required>
                 <option selected disabled>Select location</option>
-                @foreach ($locations as $loc)
-                <option value="{{ $loc['id'] }}">{{ $loc['name'] }}</option>
+                @foreach (($locations ?? $location ?? []) as $loc)
+                @php
+                  $lId = is_array($loc) ? ($loc['id'] ?? '') : ($loc->id ?? '');
+                  $lName = is_array($loc) ? ($loc['name'] ?? '') : ($loc->name ?? '');
+                @endphp
+                <option value="{{ $lId }}">{{ $lName }}</option>
                 @endforeach
               </select>
             </div>

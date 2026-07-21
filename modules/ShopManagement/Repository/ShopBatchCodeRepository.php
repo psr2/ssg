@@ -47,20 +47,53 @@ class ShopBatchCodeRepository
                 'units.abbreviation as unit'
             );
 
+        // ── 3. Batches created via direct purchases in shops ────────────────
+        $purchaseQuery = DB::table('stock_purchase_items as spi')
+            ->join('products',  'spi.product',     '=', 'products.id')
+            ->join('locations', 'spi.location_id', '=', 'locations.id')
+            ->leftJoin('units', 'products.unit_id', '=', 'units.id')
+            ->where('locations.type', 'shop')
+            ->select(
+                'spi.batch       as batch_code',
+                'spi.product     as product_id',
+                'spi.location_id as location_id',
+                'spi.grade',
+                'locations.name  as location',
+                'products.name   as product',
+                'units.abbreviation as unit'
+            );
+
+        // ── 4. Batches in stock_ledger_entries ──────────────────────────────
+        $ledgerQuery = DB::table('stock_ledger_entries as sle')
+            ->join('products',  'sle.product_id',  '=', 'products.id')
+            ->join('locations', 'sle.location_id', '=', 'locations.id')
+            ->leftJoin('units', 'products.unit_id', '=', 'units.id')
+            ->where('locations.type', 'shop')
+            ->select(
+                'sle.batch_code  as batch_code',
+                'sle.product_id',
+                'sle.location_id as location_id',
+                'sle.grade',
+                'locations.name  as location',
+                'products.name   as product',
+                'units.abbreviation as unit'
+            );
+
         // ── Apply optional filters ────────────────────────────────────────
-        foreach ([$shQuery, $transQuery] as $q) {
-            if (!empty($filters['product_listing'])) {
+        $queries = [$shQuery, $transQuery, $purchaseQuery, $ledgerQuery];
+        foreach ($queries as $q) {
+            if (!empty($filters['product_listing']) && $filters['product_listing'] !== 'select') {
                 $q->where('products.id', $filters['product_listing']);
             }
-            if (!empty($filters['location'])) {
+            if (!empty($filters['location']) && $filters['location'] !== 'select') {
                 $q->where('locations.id', $filters['location']);
             }
         }
 
         // ── Merge & deduplicate on composite key ──────────────────────────
         $allRows = [];
-        foreach ([$shQuery->get(), $transQuery->get()] as $rows) {
-            foreach ($rows as $row) {
+        foreach ($queries as $q) {
+            foreach ($q->get() as $row) {
                 if (!$row->batch_code || !$row->product_id || !$row->location_id) {
                     continue;
                 }
@@ -82,6 +115,19 @@ class ShopBatchCodeRepository
                     $item->batch_code,
                     $item->grade
                 );
+                try {
+                    $latestUnit = $service->getLatestUnit(
+                        (int) $item->location_id,
+                        (int) $item->product_id,
+                        $item->batch_code,
+                        $item->grade
+                    );
+                    if ($latestUnit) {
+                        $item->unit = $latestUnit;
+                    }
+                } catch (\Exception $e) {
+                    // Fall back
+                }
                 return $item;
             })
             ->filter(fn($item) => $item->available_qty > 0)

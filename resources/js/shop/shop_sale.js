@@ -20,57 +20,61 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     // Function to add new row
     function addRow() {
-
         let rowIndex = itemsTableBody.querySelectorAll("tr").length;
         const row = document.createElement("tr");
         row.setAttribute("data-index", rowIndex);
-        let productListTd = "";
 
+        let options = '<option selected disabled>select</option>';
         if (productList) {
-            let options = '';
-
-            // Generate options for the select element
-            productList.forEach((product) => {
-                options += `<option value="${product.id}">${product.name}</option>`;
-            });
-
-            productListTd = `<td style="width:15%;">
-                <select class="form-select item-product" name="items[product][]" required>
-                <option selected disabled>select</option>
-                    ${options}
-                    </select>
-                    <span class="error error-items-${rowIndex}-product text-danger text-small"></span>
-                </td>`;
+            let list = productList;
+            if (typeof list === 'string') {
+                try { list = JSON.parse(list); } catch (e) { }
+            }
+            if (Array.isArray(list)) {
+                list.forEach((product) => {
+                    options += `<option value="${product.id}">${product.name}</option>`;
+                });
+            }
         }
 
+        const productListTd = `<td style="width:15%;">
+            <select class="form-select item-product" name="items[product][]" required>
+                ${options}
+            </select>
+            <span class="error error-items-${rowIndex}-product text-danger text-small"></span>
+        </td>`;
+
+        let unitOpts = '<option selected disabled>select</option>';
+        if (unitList && Array.isArray(unitList) && unitList.length > 0) {
+            unitList.forEach(u => {
+                unitOpts += `<option value="${u.abbreviation}">${u.abbreviation}</option>`;
+            });
+        } else {
+            unitOpts += `<option value="kg">kg</option><option value="pcs">pcs</option>`;
+        }
 
         row.innerHTML = `${productListTd}
-
             <td style="width:20%;">
-                 <input type="text" readonly class="form-control item-batch-code " name="items[batch_code][]" data-bs-toggle="modal" data-bs-target="#staticBackdropBatchCode">
+                 <input type="text" readonly class="form-control item-batch-code" name="items[batch_code][]" data-bs-toggle="modal" data-bs-target="#staticBackdropBatchCode">
                 <span class="error error-items-${rowIndex}-batch_code text-danger text-small"></span>
             </td>
-
             <td style="width:15%;">
-                 <select class=" form-select item-grade" name="items[grade][]">
-                    <option selected disabled>select </option>
-                    <option value=1>Big</option>
-                    <option value=2>Small</option>
+                 <select class="form-select item-grade" name="items[grade][]">
+                    <option selected disabled>select</option>
+                    <option value="A">Grade A</option>
+                    <option value="B">Grade B</option>
+                    <option value="C">Grade C</option>
+                    <option value="Waste">Waste</option>
                 </select>
-
                 <span class="error error-items-${rowIndex}-grade text-danger text-small"></span>
             </td>
-           
-
-            <td >
+            <td>
                 <input type="number" class="form-control item-qty" name="items[qty][]" min="0" step="any" required>
                 <span class="error error-items-${rowIndex}-quantity text-danger text-small"></span>
             </td>
             <td style="width:15%;">
-                <select class=" form-select item-unit" name="items[unit][]">
-                    <option selected disabled>select</option>
-                    <option value="kg">kg</option>
-                    <option value="pcs">pcs</option>
+                <select class="form-select item-unit" name="items[unit][]">
+                    ${unitOpts}
                 </select>
                 <span class="error error-items-${rowIndex}-unit text-danger text-small"></span>
             </td>
@@ -82,7 +86,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 <input type="number" class="form-control item-total" name="items[total][]" readonly>
                 <span class="error error-items-${rowIndex}-total_price text-danger text-small"></span>
             </td>
-            
             <td>
                 <button type="button" class="btn btn-sm btn-danger removeRowBtn"><i class="bi-trash"></i></button>
             </td>
@@ -105,7 +108,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         row.querySelector(".removeRowBtn").addEventListener("click", function () {
             row.remove();
             recalcGrandTotal();
-            // Re-index rows and error spans
             reindexRows();
         });
 
@@ -125,10 +127,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Add row when button clicked
     addItemBtn.addEventListener("click", addRow);
 
-    // Start with one empty row
-
     await getProductlist();
-
+    await getUnitlist();
     addRow();
 });
 
@@ -319,7 +319,6 @@ function clearErrorSpans() {
 }
 
 async function getProductlist() {
-
     try {
         let response = await fetch("/shop/product/list", {
             method: "GET",
@@ -331,94 +330,49 @@ async function getProductlist() {
         });
 
         let data = await response.json();
+        if (typeof data === 'string') {
+            try { data = JSON.parse(data); } catch (e) { }
+        }
 
         if (!response.ok && data.errors) {
-
-            console.log(data.errors)
-
+            console.log(data.errors);
             return false;
-        }
-        else {
-
+        } else {
             productList = data;
-
         }
-
-
-
     } catch (err) {
-        console.error("Error creating sale:", err);
-        return false;
+        console.error("Error loading product list:", err);
     }
-
-
 }
 
+let unitList = null;
 
+async function getUnitlist() {
+    try {
+        let response = await fetch("/api/units", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                "Accept": "application/json"
+            },
+        });
+        if (response.ok) {
+            let data = await response.json();
+            unitList = data;
+        }
+    } catch (err) {
+        console.error("Error loading unit list:", err);
+    }
+}
 
-
-//Batch Logic 
-
-/**
- * Batch code is currently working only on single product stock out
- * will not work on dynamically generated product items
- * Result of the fetch call is append to input with id batchCodeInput
- */
-
-
-document.getElementById('batchCodeSearchForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    console.log('fired')
-
-    const form = e.target;
-    const data = {
-        product_listing: form.product_listing.value,
-        location: form.location.value,
-        dateFrom: form.dateFrom.value
-    };
-
-    fetch("/shop/search-batch-code", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-        },
-        body: JSON.stringify(data)
-    })
-        .then(res => res.json())
-        .then(response => {
-            const tbody = document.querySelector('#batchCodeResults tbody');
-            tbody.innerHTML = "";
-
-            if (response.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center">No results found.</td></tr>`;
-            } else {
-                response.forEach((item, index) => {
-                    tbody.innerHTML += `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>${item.batch_code}</td>
-                        <td>${item.product}</td>
-                        <td>${item.location}</td>
-                        <td><button data-bs-target="#saleModal" data-bs-toggle="modal" class="btn btn-sm btn-success select-batch" data-batch-code="${item.batch_code}" data-id="${item.id}">Select</button></td>
-                    </tr>`;
-                });
-            }
-        })
-        .catch(error => console.error("Search failed:", error));
-});
-
-// Global variable to track which input was clicked
+// ── Batch Code Selection Mechanism ──────────────────────────────────────────
 let currentBatchInput = null;
 
-// Track clicked batch input
 document.addEventListener('click', function (e) {
     if (e.target && e.target.classList.contains('item-batch-code')) {
         currentBatchInput = e.target;
-        console.log('Clicked input:', currentBatchInput);
 
-        // Auto-populate product and location in the batch code search modal
         const row = e.target.closest('tr');
         if (row) {
             const productSelect = row.querySelector('.item-product');
@@ -430,21 +384,25 @@ document.addEventListener('click', function (e) {
             const modalProductSelect = document.querySelector('#batchCodeSearchForm select[name="product_listing"]');
             const modalLocationSelect = document.querySelector('#batchCodeSearchForm select[name="location"]');
 
-            if (modalProductSelect && productId) {
-                modalProductSelect.value = productId;
-            }
-            if (modalLocationSelect && shopId) {
-                modalLocationSelect.value = shopId;
-            }
-
-            // Clear previous results in the modal table
-            const tbody = document.querySelector('#batchCodeResults tbody');
-            if (tbody) {
-                tbody.innerHTML = '';
+            // Dynamically populate modal product options if empty
+            if (modalProductSelect && productList && Array.isArray(productList) && modalProductSelect.options.length <= 1) {
+                let opts = '<option value="" disabled selected>Select product</option>';
+                productList.forEach(p => {
+                    opts += `<option value="${p.id}">${p.name}</option>`;
+                });
+                modalProductSelect.innerHTML = opts;
             }
 
-            // Auto-trigger search if both product and location are set
-            if (modalProductSelect && modalLocationSelect && productId && shopId) {
+            if (modalProductSelect && productId && productId !== 'select') modalProductSelect.value = productId;
+            if (modalLocationSelect && shopId && shopId !== 'select') modalLocationSelect.value = shopId;
+
+            // Clear previous results
+            const listContainer = document.getElementById('batchCodeListResults');
+            if (listContainer) listContainer.innerHTML = '';
+
+            // Auto-trigger search whenever shop location is set (shows all available batches for shop if no product selected)
+            const currentLoc = modalLocationSelect ? modalLocationSelect.value : '';
+            if (currentLoc && currentLoc !== 'select' && currentLoc !== 'Select location') {
                 setTimeout(() => {
                     document.getElementById('search_batch_code')?.click();
                 }, 100);
@@ -453,28 +411,189 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// Attach listener once, delegate clicks on .select-batch buttons inside tbody
-document.querySelector('#batchCodeResults tbody').addEventListener('click', function (e) {
-    const target = e.target;
+document.getElementById('batchCodeSearchForm')?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const prodVal = form.product_listing ? form.product_listing.value : '';
+    const locVal = form.location ? form.location.value : '';
+    const data = {
+        product_listing: (prodVal && prodVal !== 'select') ? prodVal : '',
+        location: (locVal && locVal !== 'select') ? locVal : '',
+        dateFrom: form.dateFrom ? form.dateFrom.value : '',
+    };
 
-    if (target && (target.classList.contains('select-batch') || target.classList.contains('wh-select-batch'))) {
-        e.preventDefault();
+    const listContainer = document.getElementById('batchCodeListResults');
+    if (!listContainer) return;
 
-        const batchCode = target.getAttribute('data-batch-code');
+    fetch('/shop/search-batch-code', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+        body: JSON.stringify(data),
+    })
+        .then(res => res.json())
+        .then(results => {
+            listContainer.innerHTML = '';
 
-        if (currentBatchInput) {
+            const filterContainer = document.getElementById('modalQuickFilterContainer');
+            const filterInput = document.getElementById('modalQuickFilter');
+            if (filterInput) filterInput.value = '';
+
+            if (!results || !results.length) {
+                if (filterContainer) filterContainer.classList.add('d-none');
+                listContainer.innerHTML = `
+            <div class="premium-empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                </svg>
+                <div class="premium-empty-state-title">No Batches Found</div>
+                <div class="premium-empty-state-text">No available stock matches the selected product and shop location.</div>
+            </div>`;
+                return;
+            }
+
+            if (filterContainer) filterContainer.classList.remove('d-none');
+
+            results.forEach(item => {
+                let gradeClass = 'badge-grade-unsorted';
+                const gradeLower = (item.grade || '').toLowerCase();
+                if (gradeLower === 'a' || gradeLower === 'big' || gradeLower === '1') gradeClass = 'badge-grade-a';
+                else if (gradeLower === 'b' || gradeLower === 'small' || gradeLower === '2') gradeClass = 'badge-grade-b';
+                else if (gradeLower === 'c') gradeClass = 'badge-grade-c';
+                else if (gradeLower === 'waste' || gradeLower === 'reject') gradeClass = 'badge-grade-waste';
+
+                const qtyVal = parseFloat(item.available_qty || 0);
+                let qtyClass = 'qty-low';
+                if (qtyVal > 50) qtyClass = 'qty-high';
+                else if (qtyVal > 0) qtyClass = 'qty-medium';
+
+                listContainer.innerHTML += `
+            <div class="batch-item-card select-batch"
+                 data-batch-code="${item.batch_code}"
+                 data-grade="${item.grade || ''}"
+                 data-product-id="${item.product_id || ''}"
+                 data-unit="${item.unit || ''}">
+                <div class="batch-item-left">
+                    <div class="batch-item-title-row">
+                        <span class="batch-item-product">${item.product}</span>
+                        <span class="batch-item-code font-monospace">${item.batch_code}</span>
+                    </div>
+                    <div class="batch-item-subtitle-row">
+                        <span class="badge-premium-grade ${gradeClass}">${item.grade || 'N/A'}</span>
+                        <span class="batch-item-location text-muted"><i class="bi bi-geo-alt"></i> ${item.location}</span>
+                    </div>
+                </div>
+                <div class="batch-item-right">
+                    <div class="batch-item-qty-label">Available Qty</div>
+                    <span class="badge-premium-qty ${qtyClass}">${qtyVal.toFixed(2)} ${item.unit || ''}</span>
+                </div>
+            </div>`;
+            });
+
+            // Quick client-side filter
+            if (filterInput && !filterInput.dataset.shopListenerAttached) {
+                filterInput.dataset.shopListenerAttached = 'true';
+                filterInput.addEventListener('input', function () {
+                    const val = this.value.toLowerCase().trim();
+                    listContainer.querySelectorAll('.batch-item-card').forEach(card => {
+                        card.classList.toggle('d-none', !card.textContent.toLowerCase().includes(val));
+                    });
+                });
+            }
+        })
+        .catch(err => console.error('Shop batch search failed:', err));
+});
+
+// Delegated click handler on the card list container
+document.addEventListener('DOMContentLoaded', function () {
+    const listContainer = document.getElementById('batchCodeListResults');
+    if (listContainer) {
+        listContainer.addEventListener('click', function (e) {
+            const card = e.target.closest('.select-batch');
+            if (!card || !currentBatchInput) return;
+
+            e.preventDefault();
+
+            const batchCode = card.getAttribute('data-batch-code');
+            const grade = card.getAttribute('data-grade');
+            const unit = card.getAttribute('data-unit');
+            const productId = card.getAttribute('data-product-id');
+
             currentBatchInput.value = batchCode;
-            console.log('Batch code set:', batchCode);
-        } else {
-            console.warn('No batch input was selected before selecting batch code');
-        }
+
+            const row = currentBatchInput.closest('tr');
+            if (row) {
+                // Auto-fill product if not set
+                const productSelect = row.querySelector('.item-product');
+                if (productSelect && productId) {
+                    productSelect.value = productId;
+                }
+
+                // Auto-fill grade
+                const gradeSelect = row.querySelector('.item-grade');
+                if (gradeSelect && grade) {
+                    let gradeOptionExists = Array.from(gradeSelect.options).some(o => o.value.toLowerCase() === grade.toLowerCase());
+                    if (!gradeOptionExists) {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = grade;
+                        newOpt.textContent = grade;
+                        gradeSelect.appendChild(newOpt);
+                    }
+                    gradeSelect.value = grade;
+                    if (!gradeSelect.value || gradeSelect.selectedIndex <= 0) {
+                        const opt = Array.from(gradeSelect.options).find(o =>
+                            o.text.trim().toLowerCase() === grade.toLowerCase() ||
+                            o.value.trim().toLowerCase() === grade.toLowerCase()
+                        );
+                        if (opt) gradeSelect.value = opt.value;
+                    }
+                }
+
+                // Auto-fill unit
+                const unitSelect = row.querySelector('.item-unit');
+                if (unitSelect && unit) {
+                    let unitOptionExists = Array.from(unitSelect.options).some(o => o.value.toLowerCase() === unit.toLowerCase());
+                    if (!unitOptionExists) {
+                        const newOpt = document.createElement('option');
+                        newOpt.value = unit;
+                        newOpt.textContent = unit;
+                        unitSelect.appendChild(newOpt);
+                    }
+                    unitSelect.value = unit;
+                    if (!unitSelect.value || unitSelect.selectedIndex <= 0) {
+                        const opt = Array.from(unitSelect.options).find(o =>
+                            o.text.trim().toLowerCase() === unit.toLowerCase() ||
+                            o.value.trim().toLowerCase() === unit.toLowerCase()
+                        );
+                        if (opt) unitSelect.value = opt.value;
+                    }
+                }
+            }
+
+            // Close batch modal, return to sale modal
+            const modalEl = document.getElementById('staticBackdropBatchCode');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        });
+    }
+
+    // Auto-reopen saleModal when staticBackdropBatchCode is closed
+    const batchModalEl = document.getElementById('staticBackdropBatchCode');
+    if (batchModalEl) {
+        batchModalEl.addEventListener('hidden.bs.modal', function () {
+            const parentModalEl = document.getElementById('saleModal');
+            if (parentModalEl) {
+                const parentModal = bootstrap.Modal.getOrCreateInstance(parentModalEl);
+                parentModal.show();
+            }
+        });
     }
 });
 
 function resetContactName() {
-
     document.getElementById('customer_name').value = "";
-
 }
 
 

@@ -63,7 +63,7 @@ class SaleController extends Controller
 
     public function productList()
     {
-        return $products = json_encode($this->products->shareProductList(), true);
+        return response()->json($this->products->shareProductList());
     }
 
     public function updatePayments(PaymentUpdateRequest $request){
